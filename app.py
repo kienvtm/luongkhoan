@@ -129,9 +129,9 @@ def chart_luong_tt(data_daily):
             "Date: %{x}<br>"
             "Actual: %{customdata[0]:,.0f}<br>"
             "Khoán: %{customdata[1]:,.0f}<br>"
-            "Chênh lệch: %{y:,.0f}<extra></extra>"
+            "Chênh lệch: %{customdata[2]:,.0f}<extra></extra>"
         ),
-        customdata=data_daily[['total_luongtt_act', 'luong_tt_daily_avg_moving_avg_mtd']]
+        customdata=data_daily[['total_luongtt_act', 'luong_tt_daily_avg_moving_avg_mtd', 'chenh_lech_luong_khoan']]
     ))
 
     # Update layout
