@@ -17,7 +17,7 @@ dta_daily_path = cwd.joinpath('data_luongtt.parquet')
 db = duckdb.connect()
 db.execute(f"CREATE or replace temp VIEW data_daily AS SELECT * FROM '{dta_daily_path}'")
 
-st.title("Dashboard Lương khoán")
+st.title("Dashboard Lương khoán theo TC từng ngày")
 
 @st.cache_data
 def get_data_daily(store=''):
@@ -71,17 +71,17 @@ def chart_luong_tt(data_daily):
     # Create a stacked bar chart using Plotly
     fig = go.Figure()
 
-    # Lollipop chart for 'luong_tt_daily_avg_moving_avg_mtd' and 'total_luongtt_act'
+    # Lollipop chart for 'luong_tt_daily' and 'total_luongtt_act'
     for idx, row in data_daily.iterrows():
-        # Line from 'total_luongtt_act' to 'luong_tt_daily_avg_moving_avg_mtd'
+        # Line from 'total_luongtt_act' to 'luong_tt_daily'
         fig.add_trace(go.Scatter(
             x=[row['report_date'], row['report_date']],
-            y=[0, row['luong_tt_daily_avg_moving_avg_mtd']],
+            y=[0, row['luong_tt_daily']],
             mode='lines',
             line=dict(color='grey', width=0.5),
             showlegend=False
         ))
-        # Line from 'total_luongtt_act' to 'luong_tt_daily_avg_moving_avg_mtd'
+        # Line from 'total_luongtt_act' to 'luong_tt_daily'
         fig.add_trace(go.Scatter(
             x=[row['report_date'], row['report_date']],
             y=[0, row['total_luongtt_act']],
@@ -101,10 +101,10 @@ def chart_luong_tt(data_daily):
             ),
             name='Actual' if idx == 0 else None
         ))
-        # Point for 'luong_tt_daily_avg_moving_avg_mtd'
+        # Point for 'luong_tt_daily'
         fig.add_trace(go.Scatter(
             x=[row['report_date']],
-            y=[row['luong_tt_daily_avg_moving_avg_mtd']],
+            y=[row['luong_tt_daily']],
             mode='markers',
             marker=dict(color='orange', size=10),
             hovertemplate=(
@@ -131,12 +131,12 @@ def chart_luong_tt(data_daily):
             "Khoán: %{customdata[1]:,.0f}<br>"
             "Chênh lệch: %{customdata[2]:,.0f}<extra></extra>"
         ),
-        customdata=data_daily[['total_luongtt_act', 'luong_tt_daily_avg_moving_avg_mtd', 'chenh_lech_luong_khoan']]
+        customdata=data_daily[['total_luongtt_act', 'luong_tt_daily', 'chenh_lech_luong_khoan']]
     ))
 
     # Update layout
     fig.update_layout(
-        title='Chênh lệch lương khoán',
+        title='Chênh lệch Khoán - Thực tế hàng ngày',
         # xaxis_title=False,
         # yaxis_title='Values',
         barmode='stack',
@@ -205,9 +205,19 @@ def chart_whr(data_daily):
         x=data_daily['report_date'],
         y=data_daily['baseline_rfc'],
         mode='lines',
-        name='Baseline RFC',
+        name='Baseline TC RFC',
         line_shape='hvh',
         line=dict(color='red', width=2)
+    ))
+    
+    # Add line for 'baseline_rfc'
+    fig.add_trace(go.Scatter(
+        x=data_daily['report_date'],
+        y=data_daily['baseline_act'],
+        mode='lines',
+        name='Baseline TC Act',
+        line_shape='hvh',
+        line=dict(color='blue', width=2)
     ))
 
     # Add stacked bar for 'whr_act'
@@ -257,31 +267,40 @@ def highlight_chenh_lech(val):
     return f'color: {color}'
 
 def highlight_row(row):
-    color = 'background-color: #FF5353' if row['chenh_lech_luong_khoan_avg'] < 0 else (
-            'background-color: #67FF53' if row['chenh_lech_luong_khoan_avg'] > 0 else '')
+    color = 'background-color: #FF5353' if row['chenh_lech_luong_khoan'] < 0 else (
+            'background-color: #67FF53' if row['chenh_lech_luong_khoan'] > 0 else '')
     return [color] * len(row)
 
 # Define a function to apply text color based on 'chenh_lech_luong_khoan'
 def highlight_text(row):
-    color = '#FF5353' if row['Chênh lệch lương khoán'] < 0 else (
-            '#3CB32D' if row['Chênh lệch lương khoán'] > 0 else 'black')
+    color = '#FF5353' if row['Chênh lệch Khoán - Thực tế hàng ngày'] < 0 else (
+            '#3CB32D' if row['Chênh lệch Khoán - Thực tế hàng ngày'] > 0 else 'black')
     return [f'color: {color}' for _ in row]
 
 def display_table(data_daily):
     # Store original numeric values for formatting and display
     
-    cols = ['brand', 'store_vt', 'tc_forecast', 'report_date', 'tc', 
+    cols = ['brand', 'store_vt', 
+            'report_date', 
+            'tc_forecast', 
+        'baseline_rfc', 
+        'whr_sche',
+            'tc', 
+        'whr_act', 
+        'baseline_act', 
+        'whr_gstar', 
+        'total_whr_act',
             'luongtt_gstar','luongtt_ggg','total_luongtt_act', 
-            # 'luong_tt_daily_avg_mtd', 'mtd_avg_tc', 'chenh_lech_luong_khoan_avg',
-            'luong_tt_daily_avg_moving_avg_mtd', 'moving_mtd_avg_tc', 'chenh_lech_luong_khoan',
+            # 'luong_tt_daily', 'mtd_avg_tc', 'chenh_lech_luong_khoan',
+            'luong_tt_daily', 
+            # 'moving_mtd_avg_tc', 
+            'chenh_lech_luong_khoan',
         #    'tc_from_daily_mtd', 'tc_to_daily_mtd', 
         #    'luong_tt_tier0',
         #    'bonus_per_tc_over_avg_mtd', 'bonus_fix_daily_avg_mtd',       'bonus_daily_avg_mtd', 
-        'whr_sche','whr_act', 
-        'baseline_act', 'baseline_rfc', 'whr_gstar', 
-        'total_whr_act']
+        ]
     data_table = data_daily[cols]
-
+    data_table['whr_act_vs_baseline_act'] = (data_table['total_whr_act'] / data_table['baseline_act']) * 100 - 100
     # Format 'report_date' to show only year-month-date
     data_table['report_date'] = data_table['report_date'].dt.strftime('%Y-%m-%d')
     data_display = data_table.copy()
@@ -294,29 +313,45 @@ def display_table(data_daily):
                 'luongtt_gstar':'Lương Gstar',
                 'luongtt_ggg':'Lương trực tiếp',
                 'total_luongtt_act':'Tổng lương trực tiếp', 
-                # 'luong_tt_daily_avg_mtd':'Lương khoán', 
+                # 'luong_tt_daily':'Lương khoán theo TC từng ngày', 
                 # 'mtd_avg_tc':'TC trung bình', 
-                # 'chenh_lech_luong_khoan_avg':'Chênh lệch lương khoán',
-                'luong_tt_daily_avg_moving_avg_mtd':'Lương khoán', 
-                'moving_mtd_avg_tc':'TC trung bình', 
-                'chenh_lech_luong_khoan':'Chênh lệch lương khoán',
+                # 'chenh_lech_luong_khoan':'Chênh lệch Khoán - Thực tế hàng ngày',
+                'luong_tt_daily':'Lương khoán theo TC từng ngày', 
+                # 'moving_mtd_avg_tc':'TC trung bình', 
+                'chenh_lech_luong_khoan':'Chênh lệch Khoán - Thực tế hàng ngày',
                 # 'tc_from_daily_mtd', 'tc_to_daily_mtd', 'luong_tt_tier0',
                 # 'bonus_per_tc_over_avg_mtd', 'bonus_fix_daily_avg_mtd',
                 # 'bonus_daily_avg_mtd', 
                 'whr_sche':'Giờ công lập lịch',
-                'baseline_act':'Baseline Actual', 
-                'baseline_rfc':'Baseline Forecast', 
+                'baseline_act':'Baseline TC Actual', 
+                'baseline_rfc':'Baseline TC Forecast', 
                 'whr_act':'Giờ công thực tế', 
                 'whr_gstar':'Giờ công Gstar', 
-                'total_whr_act':'Tổng giờ công'
+                'total_whr_act':'Tổng giờ công',
+                'whr_act_vs_baseline_act':'Chênh lệch WHR Thực tế - Baseline TC Act (%)'
     }
 
-    format_cols2 =['TC Forecast', 'TC Actual', 'Lương Gstar', 'Lương trực tiếp','Tổng lương trực tiếp','Lương khoán','Chênh lệch lương khoán','TC trung bình','Giờ công lập lịch','Baseline Actual','Baseline Forecast','Giờ công thực tế', 'Giờ công Gstar', 'Tổng giờ công' ]
+    format_cols2 =['TC Forecast', 'TC Actual', 'Lương Gstar', 'Lương trực tiếp','Tổng lương trực tiếp','Lương khoán theo TC từng ngày','Chênh lệch Khoán - Thực tế hàng ngày',
+                #    'TC trung bình',
+                   'Giờ công lập lịch','Baseline TC Actual','Baseline TC Forecast','Giờ công thực tế', 'Giờ công Gstar', 'Tổng giờ công', 'Chênh lệch WHR Thực tế - Baseline TC Act (%)' ]
+    
     data_display.rename(columns=rename_cols, inplace=True)
-    # )
-    styled_data = data_display.style.format(subset=format_cols2, formatter="{:,.0f}").apply(highlight_text, axis=1)
-    return styled_data
 
+    # summary theo tong va avg
+    data_display_sum = data_display.drop(columns='Date').groupby(['Brand', 'Store']).sum()
+    data_display_sum['Chênh lệch WHR Thực tế - Baseline TC Act (%)'] = (data_display_sum['Tổng giờ công'] / data_display_sum['Baseline TC Actual']) * 100 - 100
+    data_display_sum['aggregation'] = 'Sum Total'
+    data_display_avg = data_display.drop(columns='Date').groupby(['Brand', 'Store']).mean()
+    data_display_avg['Chênh lệch WHR Thực tế - Baseline TC Act (%)'] = (data_display_avg['Tổng giờ công'] / data_display_avg['Baseline TC Actual']) * 100 - 100
+    data_display_avg['aggregation'] = 'Average Total'
+    summary_data = pd.concat(objs=[data_display_sum, data_display_avg], axis=0)
+    # Move the last column to the first position
+    last_col = summary_data.columns[-1]
+    summary_data = summary_data[[last_col] + summary_data.columns[:-1].tolist()]
+
+    styled_data = data_display.style.format(subset=format_cols2, formatter="{:,.0f}").apply(highlight_text, axis=1)
+    styled_data_summary = summary_data.sort_index().reset_index().style.format(subset=format_cols2, formatter="{:,.0f}").apply(highlight_text, axis=1)
+    return styled_data, styled_data_summary
 def chart_dayofweek(box_data):
     fig1 = px.violin(box_data, y='Chênh lệch', x='Ngày trong tuần', 
                     points='all', box=True,
@@ -327,7 +362,7 @@ def chart_dayofweek(box_data):
                     'profit_center': True,
                     'Chênh lệch': ':,.0f',  # Format with comma and one decimal place
                     'Lương thực tế': ':,.0f', 
-                    'Lương khoán': ':,.0f', 
+                    'Lương khoán theo TC từng ngày': ':,.0f', 
                     'TC forecast':':,.0f', 
                     'TC Actual':':,.0f', 
                     },
@@ -337,7 +372,7 @@ def chart_dayofweek(box_data):
                     meanline_visible=True,
                     )  # Adjust marker opacity if needed
     fig1.update_layout(
-        title='Chênh lệch lương khoán theo ngày trong tuần',
+        title='Chênh lệch Khoán - Thực tế hàng ngày theo ngày trong tuần',
         showlegend=False
         # xaxis_title='Brand',
         # yaxis_title='Avg luongtt per tc',
@@ -356,7 +391,7 @@ def chart_store(box_data):
                     'profit_center': True,
                     'Chênh lệch': ':,.0f',  # Format with comma and one decimal place
                     'Lương thực tế': ':,.0f', 
-                    'Lương khoán': ':,.0f', 
+                    'Lương khoán theo TC từng ngày': ':,.0f', 
                     'TC forecast':':,.0f', 
                     'TC Actual':':,.0f', 
                     },
@@ -366,7 +401,7 @@ def chart_store(box_data):
                     meanline_visible=True,
                     )  # Adjust marker opacity if needed
     fig2.update_layout(
-        title='Chênh lệch lương khoán theo từng nhà',
+        title='Chênh lệch Khoán - Thực tế hàng ngày theo từng nhà',
         showlegend=False
         # xaxis_title='Brand',
         # yaxis_title='Avg luongtt per tc',
@@ -442,18 +477,19 @@ else:
     data_daily = get_data_daily(chon_store)
     # st.dataframe(data_daily)
 
-    data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily_avg_moving_avg_mtd'] - data_daily['total_luongtt_act']
-    data_daily['chenh_lech_luong_khoan_avg'] = data_daily['luong_tt_daily_avg_mtd'] - data_daily['total_luongtt_act']
-    data_daily['min_luong'] = data_daily[['luong_tt_daily_avg_moving_avg_mtd', 'total_luongtt_act']].min(axis=1)
+    data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily'] - data_daily['total_luongtt_act']
+    # data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily'] - data_daily['total_luongtt_act']
+    data_daily['min_luong'] = data_daily[['luong_tt_daily', 'total_luongtt_act']].min(axis=1)
     data_daily['abs_chenh_lech'] = data_daily['chenh_lech_luong_khoan'].abs()
     data_daily['pct_whr_gstar_to_baseline'] = (data_daily['whr_gstar'] / data_daily['baseline_rfc']) * 100
     data_daily['pct_whr_gstar_to_total_whr'] = (data_daily['whr_gstar'] / data_daily['total_whr_act']) * 100
+    data_daily['whr_act_vs_baseline_act'] = (data_daily['total_whr_act'] / data_daily['baseline_act']) * 100
 
     format_cols = [
         'tc', 'mtd_avg_tc', 'tc_from_daily_mtd', 'tc_to_daily_mtd', 'luong_tt_tier0',
         'bonus_per_tc_over_avg_mtd', 'bonus_fix_daily_avg_mtd', 'bonus_daily_avg_mtd',
-        'luong_tt_daily_avg_mtd', 'whr_act', 'whr_sche', 'baseline_act', 'baseline_rfc',
-        'whr_gstar', 'luongtt_gstar', 'total_whr_act','chenh_lech_luong_khoan_avg',
+        'luong_tt_daily', 'whr_act', 'whr_sche', 'baseline_act', 'baseline_rfc',
+        'whr_gstar', 'luongtt_gstar', 'total_whr_act','chenh_lech_luong_khoan',
         'luongtt_ggg', 'total_luongtt_act'
     ]
 
@@ -469,17 +505,16 @@ else:
 
     data_chart = data_daily.groupby(['report_date'], as_index=False).agg({'tc':'sum',
                                                                         'tc_forecast':'sum',
-                                                                        'luong_tt_daily_avg_moving_avg_mtd':'sum',
+                                                                        'luong_tt_daily':'sum',
                                                                         'total_luongtt_act':'sum',
                                                                         'chenh_lech_luong_khoan':'sum',
                                                                         'abs_chenh_lech':'sum',
                                                                         'min_luong':'sum',
                                                                         'baseline_rfc':'sum',
+                                                                        'baseline_act':'sum',
                                                                         'whr_act':'sum',
                                                                         'whr_gstar':'sum',
                                                                         'total_whr_act':'sum',
-                                                                        
-
                                                                         })
 
     chart_luongtt = chart_luong_tt(data_chart)
@@ -488,7 +523,7 @@ else:
 
     chart_whr = chart_whr(data_chart)
 
-    tong_khoan = data_daily['luong_tt_daily_avg_mtd'].sum()
+    tong_khoan = data_daily['luong_tt_daily'].sum()
     tong_actual = data_daily['total_luongtt_act'].sum()
     chenh_lech = tong_khoan - tong_actual
 
@@ -498,7 +533,7 @@ else:
                     'store_vt':'Store', 
                     'chenh_lech_luong_khoan': 'Chênh lệch',  # Format with comma and one decimal place
                     'total_luongtt_act': 'Lương thực tế', 
-                    'luong_tt_daily_avg_moving_avg_mtd': 'Lương khoán', 
+                    'luong_tt_daily': 'Lương khoán theo TC từng ngày', 
                     'tc_forecast':'TC forecast', 
                     'tc':'TC Actual', 
                     'day_of_week2':'Ngày trong tuần'
@@ -511,7 +546,7 @@ else:
         with st.container(border=True):
             col21, col22, col23 = st.columns(3)
             with col21:
-                st.metric(label='Lương khoán tạm tính', 
+                st.metric(label='Lương khoán theo TC từng ngày tạm tính', 
                         value=f'{tong_khoan/1e6:,.1f}M',
                         )
             with col22:
@@ -535,10 +570,27 @@ else:
             st.plotly_chart(fig1)
 
 
+    styled_data, styled_data_summary =display_table(data_daily)
 
+    with st.expander("Dữ liệu tổng hợp"):
+        st.dataframe(styled_data_summary)
+        
     with st.expander("Dữ liệu chi tiết"):
     # Display the formatted DataFrame
-        styled_data=display_table(data_daily)
+        ghi_chu = '''
+        [1] Baseline Forecast: giờ công do hệ thống Ghero tính toán dựa trên TC RFC
+
+        [2] Giờ công lập lịch: giờ công lập lịch trên Ghero do nhà hàng xếp lịch, lưu ý chỉ xếp tối đa 70% của [1]
+
+        [3] Giờ công thực tế: giờ công thực tế của nhân viên nhà hàng ghi nhận, tối đa chỉ tương đương với [2]
+
+        [4] Giờ công Gstar: giờ công trên Job market, tối đa bằng 30% của [1]
+
+        [5] Tổng giờ công = [3] Giờ công thực tế + [4] Giờ công Gstar
+
+        [6] Baseline Actual: giờ công do hệ thống Ghero tính toán dựa trên TC Actual
+        '''
+        st.write(ghi_chu)
         st.dataframe(styled_data)
 
     # Pivot the data to create a matrix for the heatmap
