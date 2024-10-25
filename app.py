@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 st.set_page_config(layout="wide")
 
+
+st.cache_data.clear()
 # data folder path
 cwd = Path(__file__).parent
 
