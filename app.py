@@ -15,9 +15,11 @@ cwd = Path(__file__).parent
 
 # daily file
 dta_daily_path = cwd.joinpath('data_luongtt.parquet')
+tier_tc_path = cwd.joinpath('tier_tc.parquet')
 
 db = duckdb.connect()
 db.execute(f"CREATE or replace temp VIEW data_daily AS SELECT * FROM '{dta_daily_path}'")
+db.execute(f"CREATE or replace temp VIEW tc_tier AS SELECT * FROM '{tier_tc_path}'")
 
 st.title("Dashboard Lương khoán theo TC từng ngày")
 
@@ -35,6 +37,26 @@ def get_data_daily(store=''):
         SELECT 
             *
         FROM data_daily 
+        '''
+    # st.write(query)
+    df_data = db.execute(query).fetch_df()
+    # st.write(len(df_data))
+    return df_data
+
+@st.cache_data
+def get_tier_tc(store=''):
+    if len(store)>0:
+        query = rf'''
+        SELECT 
+            *
+        FROM tc_tier 
+        WHERE storevt in ({store})
+        '''
+    else:
+        query = rf'''
+        SELECT 
+            *
+        FROM tc_tier 
         '''
     # st.write(query)
     df_data = db.execute(query).fetch_df()
@@ -288,11 +310,13 @@ def display_table(data_daily):
         'baseline_rfc', 
         'whr_sche',
             'tc', 
-        'whr_act', 
         'baseline_act', 
+        'whr_act', 
         'whr_gstar', 
         'total_whr_act',
-            'luongtt_gstar','luongtt_ggg','total_luongtt_act', 
+            'luongtt_gstar',
+            'luongtt_ggg',
+            'total_luongtt_act', 
             # 'luong_tt_daily', 'mtd_avg_tc', 'chenh_lech_luong_khoan',
             'luong_tt_daily', 
             # 'moving_mtd_avg_tc', 
@@ -354,6 +378,40 @@ def display_table(data_daily):
     styled_data = data_display.style.format(subset=format_cols2, formatter="{:,.0f}").apply(highlight_text, axis=1)
     styled_data_summary = summary_data.sort_index().reset_index().style.format(subset=format_cols2, formatter="{:,.0f}").apply(highlight_text, axis=1)
     return styled_data, styled_data_summary
+
+def display_tiertc(tier_tc):
+
+    tier_tc['luong_tt_tier0_monthly'] = tier_tc['luong_tt_tier0']*30
+    cols = [
+        'brand', 'pc', 'storevt', 'level_report',
+       'tc_from_daily', 
+       'tc',
+       'tier_from', 
+       'tier_monthly',
+       'luong_tt_tier0',
+       'luong_tt_tier0_monthly', 
+        'bonus_per_tc_over'
+       ]
+    rename_cols = {
+        'brand':"Brand", 
+        'pc':"Profit center", 
+        'storevt':"Store", 
+        'level_report':"Level",
+        'tc_from_daily':"TC/ngày từ", 
+        'tc':"TC/ngày đến",
+        'tier_from':"TC/tháng từ", 
+        'tier_monthly':"TC/tháng đến",
+        'luong_tt_tier0':"Lương cơ bản tại tier0/ngày", 
+        'luong_tt_tier0_monthly':"Lương cơ bản tại tier0/tháng",
+        'bonus_per_tc_over':"X-đơn giá tiền lương/TC"
+    }
+    format_cols = ["TC/ngày từ", "TC/ngày đến", "TC/tháng từ","TC/tháng đến","Lương cơ bản tại tier0/ngày","Lương cơ bản tại tier0/tháng","X-đơn giá tiền lương/TC"]
+
+    data_table = tier_tc[cols].rename(columns=rename_cols)
+    styled_data = data_table.style.format(subset=format_cols, formatter="{:,.0f}")
+
+    return styled_data
+
 def chart_dayofweek(box_data):
     fig1 = px.violin(box_data, y='Chênh lệch', x='Ngày trong tuần', 
                     points='all', box=True,
@@ -477,6 +535,11 @@ else:
 
 
     data_daily = get_data_daily(chon_store)
+
+    last_update_time = data_daily['cob_dt'].max()
+    st.write(last_update_time)
+
+    tier_tc = get_tier_tc(chon_store)
     # st.dataframe(data_daily)
 
     data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily'] - data_daily['total_luongtt_act']
@@ -580,22 +643,37 @@ else:
     with st.expander("Dữ liệu chi tiết"):
     # Display the formatted DataFrame
         ghi_chu = '''
-        [1] Baseline Forecast: giờ công do hệ thống Ghero tính toán dựa trên TC RFC
-
-        [2] Giờ công lập lịch: giờ công lập lịch trên Ghero do nhà hàng xếp lịch, lưu ý chỉ xếp tối đa 70% của [1]
-
-        [3] Giờ công thực tế: giờ công thực tế của nhân viên nhà hàng ghi nhận, tối đa chỉ tương đương với [2]
-
-        [4] Giờ công Gstar: giờ công trên Job market, tối đa bằng 30% của [1]
-
-        [5] Tổng giờ công = [3] Giờ công thực tế + [4] Giờ công Gstar
-
-        [6] Baseline Actual: giờ công do hệ thống Ghero tính toán dựa trên TC Actual
+        **[1] Baseline Forecast**: giờ công do hệ thống Ghero tính toán dựa trên TC RFC  
+        **[2] Giờ công lập lịch**: giờ công lập lịch trên Ghero do nhà hàng xếp lịch, lưu ý chỉ xếp tối đa 70% của [1]  
+        **[3] Giờ công thực tế**: giờ công thực tế của nhân viên nhà hàng ghi nhận, tối đa chỉ tương đương với [2]  
+        **[4] Giờ công Gstar**: giờ công trên Job market, tối đa bằng 30% của [1]  
+        **[5] Tổng giờ công** = [3] Giờ công thực tế + [4] Giờ công Gstar  
+        **[6] Baseline Actual**: giờ công do hệ thống Ghero tính toán dựa trên TC Actual
         '''
-        st.write(ghi_chu)
+        st.markdown(ghi_chu)
         st.dataframe(styled_data)
 
     # Pivot the data to create a matrix for the heatmap
+
+    with st.expander("TC Tiers"):
+        ghi_chu2 = '''
+        **[1] TC/ngày từ & TC/ngày đến**: khoảng TC/ngày của mỗi level  
+        **[2] TC/tháng từ & TC/tháng đến**: khoảng TC/tháng của mỗi level tính theo :blue-background[30 ngày hoạt động]  
+        **[3] Lương cơ bản tại Tier0/ngày & Lương cơ bản tại Tier0/tháng**: tính theo :blue-background[30 ngày hoạt động]  
+        **[4] X-đơn giá tiền lương/TC** trong từng mức tier.          
+        ***Ví dụ*** ở level **tier1**, có TC/ngày từ 51 đến 140, đơn giá X=40.000đ/TC thì giả sử tại ngày hoạt động có TC là 100, nhà hàng sẽ **:green[nhận thêm]** tiền lương tại mức tier1 là:  
+        :money_with_wings: (100-51+1)*40.000 = **:green[2.000.000đ]**.  
+        Với lương cơ bản tại tier0 = 1.800.000đ/ngày thì **lương khoán tại ngày hôm đó** sẽ là:  
+        :moneybag: 1.800.000 + 2.000.000 = **:green[3.800.000đ]**  
+
+        Vẫn ví dụ ở level tier1, có TC/tháng từ 1.501 đến 4.200, đơn giá vẫn là 40.000đ/TC thì giả sử cả tháng đạt 1.800TC, nhà hàng sẽ **:green[nhận thêm]** tiền lương tại mức tier1 là:  
+        :money_with_wings: (1.800-1.501+1)*40.000 = **:green[12.000.000]**.  
+        Với lương cơ bản tại tier0 = 54.000.000đ/tháng, tổng **lương khoán tại tháng đó** sẽ là:  
+        :moneybag: 54.000.000 + 12.000.000 = **:green[66.000.000đ]**
+        '''
+        st.markdown(ghi_chu2)
+        styled_tctier = display_tiertc(tier_tc)
+        st.dataframe(styled_tctier)
 
     with st.container(border=True):
         st.plotly_chart(fig2)
