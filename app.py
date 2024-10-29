@@ -17,10 +17,12 @@ cwd = Path(__file__).parent
 # daily file
 dta_daily_path = cwd.joinpath('data_luongtt.parquet')
 tier_tc_path = cwd.joinpath('tier_tc.parquet')
+dta_pbo_thuong_path = cwd.joinpath('dta_pbo_thuong.parquet')
 
 db = duckdb.connect()
 db.execute(f"CREATE or replace temp VIEW data_daily AS SELECT * FROM '{dta_daily_path}'")
 db.execute(f"CREATE or replace temp VIEW tc_tier AS SELECT * FROM '{tier_tc_path}'")
+db.execute(f"CREATE or replace temp VIEW dta_pbo_thuong AS SELECT * FROM '{dta_pbo_thuong_path}'")
 
 st.title("Dashboard Lương khoán theo TC từng ngày")
 
@@ -46,6 +48,56 @@ def get_data_daily(from_date, to_date, store=''):
     return df_data
 
 @st.cache_data
+def get_allocated_bonus(from_date, to_date, store=''):
+    if len(store)>0:
+        query = rf'''
+        WITH thuong as(
+        SELECT 
+            profit_center 
+            , date_trunc('month', report_date) som 
+            , greatest(0, sum(luong_tt_daily) - sum(total_luongtt_act)) var_luongtt
+        FROM data_daily
+        GROUP BY 
+            profit_center 
+            , date_trunc('month', report_date)
+        )	
+        SELECT 
+            a.*
+            , strftime(a.start_of_month, '%m/%Y') ym
+            , a.whr_ratio*b.var_luongtt allocated_bonus
+        FROM dta_pbo_thuong a
+        LEFT JOIN thuong b 
+            ON a.profit_center = b.profit_center AND a.start_of_month = b.som
+        WHERE store_vt in ({store})
+        and a.start_of_month between date_trunc('month', '{from_date}'::date) and date_trunc('month', '{to_date}'::date)
+        '''
+    else:
+        query = rf'''
+        WITH thuong as(
+        SELECT 
+            profit_center 
+            , date_trunc('month', report_date) som 
+            , greatest(0, sum(luong_tt_daily) - sum(total_luongtt_act)) var_luongtt
+        FROM data_daily
+        GROUP BY 
+            profit_center 
+            , date_trunc('month', report_date)
+        )	
+        SELECT 
+            a.*
+            , strftime(a.start_of_month, '%m/%Y') ym
+            , a.whr_ratio*b.var_luongtt allocated_bonus
+        FROM dta_pbo_thuong a
+        LEFT JOIN thuong b 
+            ON a.profit_center = b.profit_center AND a.start_of_month = b.som
+        where a.start_of_month between date_trunc('month', '{from_date}'::date) and date_trunc('month', '{to_date}'::date)
+        '''
+    # st.write(query)
+    df_data = db.execute(query).fetch_df()
+    # st.write(len(df_data))
+    return df_data
+
+@st.cache_data
 def get_tier_tc(store=''):
     if len(store)>0:
         query = rf'''
@@ -64,6 +116,7 @@ def get_tier_tc(store=''):
     df_data = db.execute(query).fetch_df()
     # st.write(len(df_data))
     return df_data
+
 
 
 @st.cache_data
@@ -578,6 +631,7 @@ else:
     last_update_time_local = last_update_time.astimezone(local_timezone)
     st.write(last_update_time_local)
 
+    data_allocated_bonus = get_allocated_bonus(from_date, to_date, chon_store)
     tier_tc = get_tier_tc(chon_store)
     # st.dataframe(data_daily)
 
@@ -693,6 +747,60 @@ else:
         st.dataframe(styled_data)
 
     # Pivot the data to create a matrix for the heatmap
+    with st.expander("Chia thưởng"):
+        cols = [
+            'ym',
+            'profit_center', 
+            'store_vt',
+            'group_nv', 
+            'nhom_nhan_vien', 
+            'ma_nhan_vien', 
+            'ho_ten_nv', 
+            'chuc_danh',
+            'cap_bac', 
+            'he_so', 
+            'whr', 
+            'whr_sau_he_so', 
+            'whr_ratio', 
+            'allocated_bonus',
+            ]
+        data_allocated_bonus_style = data_allocated_bonus[cols].sort_values(by=[            
+                                                                                'ym',
+                                                                                'profit_center', 
+                                                                                'store_vt',
+                                                                                'group_nv', 
+                                                                                'nhom_nhan_vien', 
+                                                                                'ma_nhan_vien', 
+                                                                                'ho_ten_nv', 
+                                                                                'chuc_danh',
+                                                                                'cap_bac', 
+                                                                                'he_so', ])
+        rename_cols = {
+            'ym':'Tháng/Năm',
+            'profit_center':'Mã profit center', 
+            'store_vt':'Store',
+            'group_nv':'Nhom nhan vien 1', 
+            'nhom_nhan_vien':'Nhom nhan vien 2', 
+            'ma_nhan_vien':'Mã nhân viên', 
+            'ho_ten_nv':"Họ tên", 
+            'chuc_danh':'Chức danh',
+            'cap_bac':'Cấp bậc', 
+            'he_so':'Hệ số', 
+            'whr':'Giờ công', 
+            'whr_sau_he_so':'Giờ công sau hệ số', 
+            'whr_ratio':'Tỷ lệ phân bổ', 
+            'allocated_bonus':'Phân bổ chênh lệch Khoán',
+        }
+        data_allocated_bonus_style = data_allocated_bonus_style.rename(columns=rename_cols)
+        data_allocated_bonus_style = data_allocated_bonus_style.style.format(
+            {'Hệ số':"{:.1f}".format, 
+            'Giờ công':"{:,.1f}".format, 
+            'Giờ công sau hệ số':"{:,.1f}".format, 
+            'Tỷ lệ phân bổ':"{:.1%}".format, 
+            'Phân bổ chênh lệch Khoán':"{:,.0f}".format,
+            }
+        )
+        st.dataframe(data_allocated_bonus_style)
 
     with st.expander("TC Tiers"):
         ghi_chu2 = '''
