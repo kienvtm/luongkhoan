@@ -748,6 +748,28 @@ else:
 
     # Pivot the data to create a matrix for the heatmap
     with st.expander("Chia thưởng"):
+        ghi_chu3 = r'''
+        Phần chênh lệch lương khoán >0 được phân chia cho các cá nhân dựa trên:    
+        **[1] Tổng số giờ công trong tháng**  
+        **[2] Hệ số nhóm nhân viên**  
+        - Nhóm 1.1: Hệ số 2  
+        - Nhóm 1.2: Hệ số 1  
+        - Nhóm 2: Hệ số 0.7   
+        
+        **[3] Giờ công sau hệ số** = [1]*[2]  
+
+        **[4] Hệ số phân bổ** 
+        '''
+        st.markdown(ghi_chu3)
+        st.latex(r'''
+                 Hệ\ số\ phân\ bổ = \frac{[3]}{\sum[3]}
+                 ''')
+        ghi_chu4 = r'''
+        Phần chênh lệch lương khoán >0 được phân chia cho các cá nhân dựa trên:    
+        **[5] Phân bổ chênh lệch khoán** = Chênh lệch Khoán - Thực tế * Hệ số phân bổ
+
+        '''
+        st.markdown(ghi_chu4)
         cols = [
             'ym',
             'profit_center', 
