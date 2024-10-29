@@ -747,7 +747,7 @@ else:
         st.dataframe(styled_data)
 
     # Pivot the data to create a matrix for the heatmap
-    with st.expander("Chia thưởng"):
+    with st.expander("Phân bổ chênh lệch Khoán"):
         ghi_chu3 = r'''
         Phần chênh lệch lương khoán >0 được phân chia cho các cá nhân dựa trên:    
         **[1] Tổng số giờ công trong tháng**  
@@ -755,7 +755,7 @@ else:
         - Nhóm 1.1: Hệ số 2  
         - Nhóm 1.2: Hệ số 1  
         - Nhóm 2: Hệ số 0.7   
-        
+
         **[3] Giờ công sau hệ số** = [1]*[2]  
 
         **[4] Hệ số phân bổ** 
