@@ -2,6 +2,7 @@ import streamlit as st
 import duckdb
 import pandas as pd
 import datetime
+import pytz
 from pathlib import Path
 import plotly.express as px
 import plotly.graph_objects as go
@@ -24,13 +25,14 @@ db.execute(f"CREATE or replace temp VIEW tc_tier AS SELECT * FROM '{tier_tc_path
 st.title("Dashboard Lương khoán theo TC từng ngày")
 
 @st.cache_data
-def get_data_daily(store=''):
+def get_data_daily(from_date, to_date, store=''):
     if len(store)>0:
         query = rf'''
         SELECT 
             *
         FROM data_daily 
         WHERE store_vt in ({store})
+        and report_date between '{from_date}' and '{to_date}'
         '''
     else:
         query = rf'''
@@ -80,6 +82,20 @@ def get_store(username):
         FROM data_daily
         where right(profit_center, 4) = '{username}'
         order by store_vt
+        '''
+    # st.write(query)
+    df_data = db.execute(query).fetch_df()
+    return df_data
+
+
+@st.cache_data
+def get_dayofweek():
+
+    query = rf'''
+        SELECT 
+            distinct day_of_week2
+        FROM data_daily
+        order by day_of_week2
         '''
     # st.write(query)
     df_data = db.execute(query).fetch_df()
@@ -511,9 +527,11 @@ else:
 
     # Get the start of the current month
     start_of_month = current_date.replace(day=1)
-    # from_date = st.sidebar.date_input('Lay du lieu tu ngay', value=start_of_month)
-    # to_date = st.sidebar.date_input('Lay du lieu den ngay')
+    from_date = st.sidebar.date_input('Lay du lieu tu ngay', value=start_of_month)
+    to_date = st.sidebar.date_input('Lay du lieu den ngay')
 
+    # st.write(from_date)
+    # st.write(to_date)
 
     stores = get_store(st.session_state["username"])
     stores = list(stores.sort_values(by='store_vt')['store_vt'])
@@ -533,11 +551,32 @@ else:
     if len(chon_store)==0:
         chon_store = store_str
 
+    day_of_weeks = get_dayofweek()
+    day_of_weeks = list(day_of_weeks['day_of_week2'])
+    dayofweek_str = ','.join(["'"+x+"'" for x in day_of_weeks])
+    chon_dayofweek = st.sidebar.multiselect(label='Chon ngay trong tuan',
+                                    options=day_of_weeks,
+                                    # default='GG Lê Trọng Tấn'
+                                    )
+    # chon_dayofweek = ','.join(["'"+x+"'" for x in chon_dayofweek])
+    
+    # st.write(chon_dayofweek)
 
-    data_daily = get_data_daily(chon_store)
+    data_daily1 = get_data_daily(from_date, to_date, chon_store)
+    if len(chon_dayofweek)==0:
+        data_daily = data_daily1.copy()
+    else:
+        flt = data_daily1['day_of_week2'].isin(chon_dayofweek)
+        data_daily = data_daily1[flt]
 
     last_update_time = data_daily['cob_dt'].max()
-    st.write(last_update_time)
+
+    # Define your local timezone (for example, 'Asia/Singapore')
+    local_timezone = pytz.timezone('Etc/GMT-7')
+
+    # Convert to your local timezone
+    last_update_time_local = last_update_time.astimezone(local_timezone)
+    st.write(last_update_time_local)
 
     tier_tc = get_tier_tc(chon_store)
     # st.dataframe(data_daily)
