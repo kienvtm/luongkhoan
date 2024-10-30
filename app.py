@@ -248,6 +248,8 @@ def chart_luong_tt_bystore(data_daily):
         "chenh_lech_luong_khoan": "sum",
         "luong_tt_daily": "sum",
         "total_luongtt_act": "sum",
+        "tc": "sum",
+        "tc_forecast": "sum",
     })
     data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily'] - data_daily['total_luongtt_act']
     # data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily'] - data_daily['total_luongtt_act']
@@ -319,9 +321,11 @@ def chart_luong_tt_bystore(data_daily):
             "Date: %{x}<br>"
             "Actual: %{customdata[0]:,.0f}<br>"
             "Khoán: %{customdata[1]:,.0f}<br>"
-            "Chênh lệch: %{customdata[2]:,.0f}<extra></extra>"
+            "Chênh lệch: %{customdata[2]:,.0f}<br>"
+            "TC Actual: %{customdata[3]:,.0f}<br>"
+            "TC RFC: %{customdata[4]:,.0f}<br>"
         ),
-        customdata=data_daily[['total_luongtt_act', 'luong_tt_daily', 'chenh_lech_luong_khoan']]
+        customdata=data_daily[['total_luongtt_act', 'luong_tt_daily', 'chenh_lech_luong_khoan', 'tc', 'tc_forecast']]
     ))
 
     # Update layout
