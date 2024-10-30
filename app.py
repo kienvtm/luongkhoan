@@ -156,7 +156,7 @@ def get_dayofweek():
 
 def chart_luong_tt(data_daily):
     '''
-    Chat the hien chenh lech giua Luong TT thuc te voi Luong khoan tinh theo moving avg TC MTD
+    Chat the hien chenh lech giua Luong TT thuc te voi Luong khoan tinh theo daily TC
     '''
     # Define colors for 'chenh_lech_luong_khoan'
     colors = ['#87FE1A' if val > 0 else '#F90202' for val in data_daily['chenh_lech_luong_khoan']]
@@ -238,6 +238,102 @@ def chart_luong_tt(data_daily):
     )
     return fig
 
+def chart_luong_tt_bystore(data_daily):
+    '''
+    Chat the hien chenh lech giua Luong TT thuc te voi Luong khoan tinh theo daily TC - tong hop theo store
+    '''
+
+
+    data_daily = data_daily.groupby(['profit_center', 'store_vt'], as_index=False).agg({
+        "chenh_lech_luong_khoan": "sum",
+        "luong_tt_daily": "sum",
+        "total_luongtt_act": "sum",
+    })
+    data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily'] - data_daily['total_luongtt_act']
+    # data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily'] - data_daily['total_luongtt_act']
+    data_daily['min_luong'] = data_daily[['luong_tt_daily', 'total_luongtt_act']].min(axis=1)
+    data_daily['abs_chenh_lech'] = data_daily['chenh_lech_luong_khoan'].abs()
+
+
+    # Define colors for 'chenh_lech_luong_khoan'
+    colors = ['#87FE1A' if val > 0 else '#F90202' for val in data_daily['chenh_lech_luong_khoan']]
+
+    # Create a stacked bar chart using Plotly
+    fig = go.Figure()
+
+    # Lollipop chart for 'luong_tt_daily' and 'total_luongtt_act'
+    for idx, row in data_daily.iterrows():
+        # Line from 'total_luongtt_act' to 'luong_tt_daily'
+        fig.add_trace(go.Scatter(
+            x=[row['store_vt'], row['store_vt']],
+            y=[0, row['luong_tt_daily']],
+            mode='lines',
+            line=dict(color='grey', width=0.5),
+            showlegend=False
+        ))
+        # Line from 'total_luongtt_act' to 'luong_tt_daily'
+        fig.add_trace(go.Scatter(
+            x=[row['store_vt'], row['store_vt']],
+            y=[0, row['total_luongtt_act']],
+            mode='lines',
+            line=dict(color='grey', width=0.5),
+            showlegend=False
+        ))
+        # Point for 'total_luongtt_act'
+        fig.add_trace(go.Scatter(
+            x=[row['store_vt']],
+            y=[row['total_luongtt_act']],
+            mode='markers',
+            marker=dict(color='blue', size=10),
+            hovertemplate=(
+                "Date: %{x}<br>"
+                "Actual: %{y:,.0f}<br>"
+            ),
+            name='Actual' if idx == 0 else None
+        ))
+        # Point for 'luong_tt_daily'
+        fig.add_trace(go.Scatter(
+            x=[row['store_vt']],
+            y=[row['luong_tt_daily']],
+            mode='markers',
+            marker=dict(color='orange', size=10),
+            hovertemplate=(
+                "Store: %{x}<br>"
+                "Khoán: %{y:,.0f}<br>"
+            ),
+            name='Khoán' if idx == 0 else None
+        ))
+
+
+    fig.add_trace(go.Bar(
+        x=data_daily['store_vt'],
+        y=data_daily['abs_chenh_lech'],
+        name='Chenh Lech',
+        marker_color=colors,
+        opacity=0.8,
+        base=data_daily['min_luong'],  # Stack on top of 'min_luong'
+        text=data_daily['chenh_lech_luong_khoan']/1e6,  # Add data labels for 'abs_chenh_lech'
+        texttemplate='%{text:,.2f}M',  # Format with comma as thousand separator and no decimals
+        textposition='outside',
+        hovertemplate=(
+            "Date: %{x}<br>"
+            "Actual: %{customdata[0]:,.0f}<br>"
+            "Khoán: %{customdata[1]:,.0f}<br>"
+            "Chênh lệch: %{customdata[2]:,.0f}<extra></extra>"
+        ),
+        customdata=data_daily[['total_luongtt_act', 'luong_tt_daily', 'chenh_lech_luong_khoan']]
+    ))
+
+    # Update layout
+    fig.update_layout(
+        title='Chênh lệch Khoán - Thực tế theo Store',
+        # xaxis_title=False,
+        # yaxis_title='Values',
+        barmode='stack',
+        showlegend=False,
+        yaxis=dict(showgrid=False),  # Hide vertical grid lines
+    )
+    return fig
 
 def chart_tc(data_daily):
     '''
@@ -846,3 +942,6 @@ else:
 
     with st.container(border=True):
         st.plotly_chart(fig2)
+    with st.container(border=True):
+        fig_storesum = chart_luong_tt_bystore(data_daily)
+        st.plotly_chart(fig_storesum)
