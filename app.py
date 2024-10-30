@@ -128,6 +128,14 @@ def get_store(username):
         FROM data_daily
         order by store_vt
         '''
+    elif username == "hr_ss":
+        query = rf'''
+        SELECT 
+            distinct store_vt
+        FROM data_daily
+        where mien = 'South'
+        order by store_vt
+        '''
     else:
         query = rf'''
         SELECT 
@@ -688,7 +696,11 @@ else:
 
     stores = get_store(st.session_state["username"])
     stores = list(stores.sort_values(by='store_vt')['store_vt'])
+
+    # st.write(stores)
+
     store_str = ','.join(["'"+x+"'" for x in list(stores)])
+    # st.write(store_str)
 
     # chon_vitri = st.sidebar.selectbox(label='Chon vi tri',
     #                                options=vitri,
