@@ -741,7 +741,7 @@ else:
 
     # Convert to your local timezone
     last_update_time_local = last_update_time.astimezone(local_timezone)
-    st.write(last_update_time_local)
+    st.write(f'Data updated time: {last_update_time_local:%c}')
 
     data_allocated_bonus = get_allocated_bonus(from_date, to_date, chon_store)
     tier_tc = get_tier_tc(chon_store)
