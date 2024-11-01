@@ -1,3 +1,4 @@
+import numpy as np
 import streamlit as st
 import duckdb
 import pandas as pd
@@ -18,11 +19,13 @@ cwd = Path(__file__).parent
 dta_daily_path = cwd.joinpath('data_luongtt.parquet')
 tier_tc_path = cwd.joinpath('tier_tc.parquet')
 dta_pbo_thuong_path = cwd.joinpath('dta_pbo_thuong.parquet')
+dta_gstar_path = cwd.joinpath('dta_gstar.parquet')
 
 db = duckdb.connect()
 db.execute(f"CREATE or replace temp VIEW data_daily AS SELECT * FROM '{dta_daily_path}'")
 db.execute(f"CREATE or replace temp VIEW tc_tier AS SELECT * FROM '{tier_tc_path}'")
 db.execute(f"CREATE or replace temp VIEW dta_pbo_thuong AS SELECT * FROM '{dta_pbo_thuong_path}'")
+db.execute(f"CREATE or replace temp VIEW dta_gstar AS SELECT * FROM '{dta_gstar_path}'")
 
 st.title("Dashboard Lương khoán theo TC từng ngày")
 
@@ -41,6 +44,29 @@ def get_data_daily(from_date, to_date, store=''):
         SELECT 
             *
         FROM data_daily 
+        and report_date between '{from_date}' and '{to_date}'
+        '''
+    # st.write(query)
+    df_data = db.execute(query).fetch_df()
+    # st.write(len(df_data))
+    return df_data
+
+@st.cache_data
+def get_data_gstar(from_date, to_date, store=''):
+    if len(store)>0:
+        query = rf'''
+        SELECT 
+            *
+        FROM dta_gstar 
+        WHERE store_vt in ({store})
+        and ngay_tuyen between '{from_date}' and '{to_date}'
+        '''
+    else:
+        query = rf'''
+        SELECT 
+            *
+        FROM dta_gstar 
+        and ngay_tuyen between '{from_date}' and '{to_date}'
         '''
     # st.write(query)
     df_data = db.execute(query).fetch_df()
@@ -646,6 +672,62 @@ def chart_store(box_data):
     return fig2
 
 
+def char_gio_cong_avg_score(gstar_avg_ungvien):
+
+    # Define custom colors for each 'doi_tuong' category
+    color_map = {
+        "GGG": "blue",   # Replace 'Category1' with the actual value in 'doi_tuong'
+        "Freelancer": "orange",  # Replace 'Category2' with the actual value in 'doi_tuong'
+        # Add more mappings as needed
+    }
+
+    fig = px.scatter(gstar_avg_ungvien, 
+                        x='avg_score', 
+                        y='gio_cong_thuc_te',
+                        color='doi_tuong',
+                        title='Giờ công thực tế - Điểm trung bình',
+                        hover_data={
+                            "ma_ung_vien":True,
+                            "ten_ung_vien":True,
+                            "doi_tuong":True,
+                        },
+                        color_discrete_map=color_map,
+                        opacity=0.7  # Adjust the opacity level here
+                        )
+    return fig
+
+
+def chart_violin_avgscore(gstar_avg_ungvien):
+
+    # Define custom colors for each 'doi_tuong' category
+    color_map = {
+        "GGG": "blue",   # Replace 'Category1' with the actual value in 'doi_tuong'
+        "Freelancer": "orange",  # Replace 'Category2' with the actual value in 'doi_tuong'
+        # Add more mappings as needed
+    }
+
+    fig = px.violin(gstar_avg_ungvien,
+                    y='avg_score',
+                    points='all', 
+                    box=True,
+                    color='doi_tuong',
+                    hover_data={
+                        'ma_ung_vien':True,
+                        'doi_tuong':True,
+                        'ten_ung_vien':True,
+                    },
+                    color_discrete_map=color_map
+                )
+    # Update layout for better visualization (optional)
+    fig.update_traces(marker=dict(opacity=0.7),
+                    meanline_visible=True,
+                    )  # Adjust marker opacity if needed
+    fig.update_layout(
+        title='Phân bố điểm trung bình',
+        # showlegend=False
+    )
+    return fig
+
 CREDENTIALS = st.secrets["credentials"]
 # st.write(CREDENTIALS)
 def login():
@@ -734,7 +816,7 @@ else:
     else:
         flt = data_daily1['day_of_week2'].isin(chon_dayofweek)
         data_daily = data_daily1[flt]
-
+    
     last_update_time = data_daily['cob_dt'].max()
     # st.write(last_update_time)
     # Define your local timezone (for example, 'Asia/Singapore')
@@ -744,6 +826,8 @@ else:
     last_update_time_local = last_update_time.astimezone(local_timezone)
     st.write(f'Data updated time: {last_update_time_local:%c}')
 
+
+    data_gstar = get_data_gstar(from_date, to_date, chon_store)
     data_allocated_bonus = get_allocated_bonus(from_date, to_date, chon_store)
     tier_tc = get_tier_tc(chon_store)
     # st.dataframe(data_daily)
@@ -812,153 +896,222 @@ else:
     fig1 = chart_dayofweek(box_data)
     fig2 = chart_store(box_data)
 
-    col01, col02 = st.columns(2)
-    with col01:
-        with st.container(border=True):
-            col21, col22, col23 = st.columns(3)
-            with col21:
-                st.metric(label='Lương khoán theo TC từng ngày tạm tính', 
-                        value=f'{tong_khoan/1e6:,.1f}M',
-                        )
-            with col22:
-                st.metric(label='Lương thực tế tạm tính', 
-                        value=f'{tong_actual/1e6:,.1f}M',
-                        )
-            with col23:
-                st.metric(label='Chênh lệch', 
-                        value=f'{chenh_lech/1e6:,.1f}M',
-                        )
-    col1, col2 = st.columns(2)
-    with col1:
-        with st.container(border=True):
-            st.plotly_chart(chart_luongtt)
-        with st.container(border=True):
-            st.plotly_chart(chart_tc)
-    with col2:
-        with st.container(border=True):
-            st.plotly_chart(chart_whr)
-        with st.container(border=True):
-            st.plotly_chart(fig1)
+    tab1, tab2 = st.tabs(['Store', 'Gstar'])
+    with tab1:
+
+        col01, col02 = st.columns(2)
+        with col01:
+            with st.container(border=True):
+                col21, col22, col23 = st.columns(3)
+                with col21:
+                    st.metric(label='Lương khoán theo TC từng ngày tạm tính', 
+                            value=f'{tong_khoan/1e6:,.1f}M',
+                            )
+                with col22:
+                    st.metric(label='Lương thực tế tạm tính', 
+                            value=f'{tong_actual/1e6:,.1f}M',
+                            )
+                with col23:
+                    st.metric(label='Chênh lệch', 
+                            value=f'{chenh_lech/1e6:,.1f}M',
+                            )
+        col1, col2 = st.columns(2)
+        with col1:
+            with st.container(border=True):
+                st.plotly_chart(chart_luongtt)
+            with st.container(border=True):
+                st.plotly_chart(chart_tc)
+        with col2:
+            with st.container(border=True):
+                st.plotly_chart(chart_whr)
+            with st.container(border=True):
+                st.plotly_chart(fig1)
 
 
-    styled_data, styled_data_summary =display_table(data_daily)
+        styled_data, styled_data_summary =display_table(data_daily)
 
-    with st.expander("Dữ liệu tổng hợp"):
-        st.dataframe(styled_data_summary)
-        
-    with st.expander("Dữ liệu chi tiết"):
-    # Display the formatted DataFrame
-        ghi_chu = '''
-        **[1] Baseline Forecast**: giờ công do hệ thống Ghero tính toán dựa trên TC RFC  
-        **[2] Giờ công lập lịch**: giờ công lập lịch trên Ghero do nhà hàng xếp lịch, lưu ý chỉ xếp tối đa 70% của [1]  
-        **[3] Giờ công thực tế**: giờ công thực tế của nhân viên nhà hàng ghi nhận, tối đa chỉ tương đương với [2]  
-        **[4] Giờ công Gstar**: giờ công trên Job market, tối đa bằng 30% của [1]  
-        **[5] Tổng giờ công** = [3] Giờ công thực tế + [4] Giờ công Gstar  
-        **[6] Baseline Actual**: giờ công do hệ thống Ghero tính toán dựa trên TC Actual
-        '''
-        st.markdown(ghi_chu)
-        st.dataframe(styled_data)
+        with st.expander("Dữ liệu tổng hợp"):
+            st.dataframe(styled_data_summary)
+            
+        with st.expander("Dữ liệu chi tiết"):
+        # Display the formatted DataFrame
+            ghi_chu = '''
+            **[1] Baseline Forecast**: giờ công do hệ thống Ghero tính toán dựa trên TC RFC  
+            **[2] Giờ công lập lịch**: giờ công lập lịch trên Ghero do nhà hàng xếp lịch, lưu ý chỉ xếp tối đa 70% của [1]  
+            **[3] Giờ công thực tế**: giờ công thực tế của nhân viên nhà hàng ghi nhận, tối đa chỉ tương đương với [2]  
+            **[4] Giờ công Gstar**: giờ công trên Job market, tối đa bằng 30% của [1]  
+            **[5] Tổng giờ công** = [3] Giờ công thực tế + [4] Giờ công Gstar  
+            **[6] Baseline Actual**: giờ công do hệ thống Ghero tính toán dựa trên TC Actual
+            '''
+            st.markdown(ghi_chu)
+            st.dataframe(styled_data)
 
-    # Pivot the data to create a matrix for the heatmap
-    with st.expander("Phân bổ chênh lệch Khoán"):
-        ghi_chu3 = r'''
-        Phần chênh lệch lương khoán >0 được phân chia cho các cá nhân dựa trên:    
-        **[1] Tổng số giờ công trong tháng**  
-        **[2] Hệ số nhóm nhân viên**  
-        - Nhóm 1.1: Hệ số 2  
-        - Nhóm 1.2: Hệ số 1  
-        - Nhóm 2: Hệ số 0.7   
+        # Pivot the data to create a matrix for the heatmap
+        with st.expander("Phân bổ chênh lệch Khoán"):
+            ghi_chu3 = r'''
+            Phần chênh lệch lương khoán >0 được phân chia cho các cá nhân dựa trên:    
+            **[1] Tổng số giờ công trong tháng**  
+            **[2] Hệ số nhóm nhân viên**  
+            - Nhóm 1.1: Hệ số 2  
+            - Nhóm 1.2: Hệ số 1  
+            - Nhóm 2: Hệ số 0.7   
 
-        **[3] Giờ công sau hệ số** = [1]*[2]  
+            **[3] Giờ công sau hệ số** = [1]*[2]  
 
-        **[4] Hệ số phân bổ** 
-        '''
-        st.markdown(ghi_chu3)
-        st.latex(r'''
-                 Hệ\ số\ phân\ bổ = \frac{[3]}{\sum[3]}
-                 ''')
-        ghi_chu4 = r'''
-        Phần chênh lệch lương khoán >0 được phân chia cho các cá nhân dựa trên:    
-        **[5] Phân bổ chênh lệch khoán** = Chênh lệch Khoán - Thực tế * Hệ số phân bổ
+            **[4] Hệ số phân bổ** 
+            '''
+            st.markdown(ghi_chu3)
+            st.latex(r'''
+                    Hệ\ số\ phân\ bổ = \frac{[3]}{\sum[3]}
+                    ''')
+            ghi_chu4 = r'''
+            Phần chênh lệch lương khoán >0 được phân chia cho các cá nhân dựa trên:    
+            **[5] Phân bổ chênh lệch khoán** = Chênh lệch Khoán - Thực tế * Hệ số phân bổ
 
-        '''
-        st.markdown(ghi_chu4)
-        cols = [
-            'ym',
-            'profit_center', 
-            'store_vt',
-            'group_nv', 
-            'nhom_nhan_vien', 
-            'ma_nhan_vien', 
-            'ho_ten_nv', 
-            'chuc_danh',
-            'cap_bac', 
-            'he_so', 
-            'whr', 
-            'whr_sau_he_so', 
-            'whr_ratio', 
-            'allocated_bonus',
-            ]
-        data_allocated_bonus_style = data_allocated_bonus[cols].sort_values(by=[            
-                                                                                'ym',
-                                                                                'profit_center', 
-                                                                                'store_vt',
-                                                                                'group_nv', 
-                                                                                'nhom_nhan_vien', 
-                                                                                'ma_nhan_vien', 
-                                                                                'ho_ten_nv', 
-                                                                                'chuc_danh',
-                                                                                'cap_bac', 
-                                                                                'he_so', ])
-        rename_cols = {
-            'ym':'Tháng/Năm',
-            'profit_center':'Mã profit center', 
-            'store_vt':'Store',
-            'group_nv':'Nhom nhan vien 1', 
-            'nhom_nhan_vien':'Nhom nhan vien 2', 
-            'ma_nhan_vien':'Mã nhân viên', 
-            'ho_ten_nv':"Họ tên", 
-            'chuc_danh':'Chức danh',
-            'cap_bac':'Cấp bậc', 
-            'he_so':'Hệ số', 
-            'whr':'Giờ công', 
-            'whr_sau_he_so':'Giờ công sau hệ số', 
-            'whr_ratio':'Tỷ lệ phân bổ', 
-            'allocated_bonus':'Phân bổ chênh lệch Khoán',
-        }
-        data_allocated_bonus_style = data_allocated_bonus_style.rename(columns=rename_cols)
-        data_allocated_bonus_style = data_allocated_bonus_style.style.format(
-            {'Hệ số':"{:.1f}".format, 
-            'Giờ công':"{:,.1f}".format, 
-            'Giờ công sau hệ số':"{:,.1f}".format, 
-            'Tỷ lệ phân bổ':"{:.1%}".format, 
-            'Phân bổ chênh lệch Khoán':"{:,.0f}".format,
+            '''
+            st.markdown(ghi_chu4)
+            cols = [
+                'ym',
+                'profit_center', 
+                'store_vt',
+                'group_nv', 
+                'nhom_nhan_vien', 
+                'ma_nhan_vien', 
+                'ho_ten_nv', 
+                'chuc_danh',
+                'cap_bac', 
+                'he_so', 
+                'whr', 
+                'whr_sau_he_so', 
+                'whr_ratio', 
+                'allocated_bonus',
+                ]
+            data_allocated_bonus_style = data_allocated_bonus[cols].sort_values(by=[            
+                                                                                    'ym',
+                                                                                    'profit_center', 
+                                                                                    'store_vt',
+                                                                                    'group_nv', 
+                                                                                    'nhom_nhan_vien', 
+                                                                                    'ma_nhan_vien', 
+                                                                                    'ho_ten_nv', 
+                                                                                    'chuc_danh',
+                                                                                    'cap_bac', 
+                                                                                    'he_so', ])
+            rename_cols = {
+                'ym':'Tháng/Năm',
+                'profit_center':'Mã profit center', 
+                'store_vt':'Store',
+                'group_nv':'Nhom nhan vien 1', 
+                'nhom_nhan_vien':'Nhom nhan vien 2', 
+                'ma_nhan_vien':'Mã nhân viên', 
+                'ho_ten_nv':"Họ tên", 
+                'chuc_danh':'Chức danh',
+                'cap_bac':'Cấp bậc', 
+                'he_so':'Hệ số', 
+                'whr':'Giờ công', 
+                'whr_sau_he_so':'Giờ công sau hệ số', 
+                'whr_ratio':'Tỷ lệ phân bổ', 
+                'allocated_bonus':'Phân bổ chênh lệch Khoán',
             }
+            data_allocated_bonus_style = data_allocated_bonus_style.rename(columns=rename_cols)
+            data_allocated_bonus_style = data_allocated_bonus_style.style.format(
+                {'Hệ số':"{:.1f}".format, 
+                'Giờ công':"{:,.1f}".format, 
+                'Giờ công sau hệ số':"{:,.1f}".format, 
+                'Tỷ lệ phân bổ':"{:.1%}".format, 
+                'Phân bổ chênh lệch Khoán':"{:,.0f}".format,
+                }
+            )
+            st.dataframe(data_allocated_bonus_style)
+
+        with st.expander("TC Tiers"):
+            ghi_chu2 = '''
+            **[1] TC/ngày từ & TC/ngày đến**: khoảng TC/ngày của mỗi level  
+            **[2] TC/tháng từ & TC/tháng đến**: khoảng TC/tháng của mỗi level tính theo :blue-background[30 ngày hoạt động]  
+            **[3] Lương cơ bản tại Tier0/ngày & Lương cơ bản tại Tier0/tháng**: tính theo :blue-background[30 ngày hoạt động]  
+            **[4] X-đơn giá tiền lương/TC** trong từng mức tier.          
+            ***Ví dụ*** ở level **tier1**, có TC/ngày từ 51 đến 140, đơn giá X=40.000đ/TC thì giả sử tại ngày hoạt động có TC là 100, nhà hàng sẽ **:green[nhận thêm]** tiền lương tại mức tier1 là:  
+            :money_with_wings: (100-51+1)*40.000 = **:green[2.000.000đ]**.  
+            Với lương cơ bản tại tier0 = 1.800.000đ/ngày thì **lương khoán tại ngày hôm đó** sẽ là:  
+            :moneybag: 1.800.000 + 2.000.000 = **:green[3.800.000đ]**  
+
+            Vẫn ví dụ ở level tier1, có TC/tháng từ 1.501 đến 4.200, đơn giá vẫn là 40.000đ/TC thì giả sử cả tháng đạt 1.800TC, nhà hàng sẽ **:green[nhận thêm]** tiền lương tại mức tier1 là:  
+            :money_with_wings: (1.800-1.501+1)*40.000 = **:green[12.000.000]**.  
+            Với lương cơ bản tại tier0 = 54.000.000đ/tháng, tổng **lương khoán tại tháng đó** sẽ là:  
+            :moneybag: 54.000.000 + 12.000.000 = **:green[66.000.000đ]**
+            '''
+            st.markdown(ghi_chu2)
+            styled_tctier = display_tiertc(tier_tc)
+            st.dataframe(styled_tctier)
+
+        with st.container(border=True):
+            st.plotly_chart(fig2)
+        with st.container(border=True):
+            fig_storesum = chart_luong_tt_bystore(data_daily)
+            st.plotly_chart(fig_storesum)
+    
+    with tab2:
+        
+        
+
+        gstar_avg_ungvien = data_gstar.groupby(['ma_ung_vien','doi_tuong','ten_ung_vien'], as_index=False).agg({"diem_danh_gia_sau_trong_so":"sum",
+            "trong_so":"sum", 
+            'gio_cong_thuc_te':'sum'                                                                                                   })
+        gstar_avg_ungvien['avg_score'] = gstar_avg_ungvien['diem_danh_gia_sau_trong_so']/gstar_avg_ungvien['trong_so']
+
+        gstar_avg_ungvien_weekly = data_gstar.groupby(['ma_ung_vien','doi_tuong','ten_ung_vien','yw'], as_index=False).agg({"diem_danh_gia_sau_trong_so":"sum",
+            "trong_so":"sum", 
+            'gio_cong_thuc_te':'sum'                                                                                                   })
+        gstar_avg_ungvien_weekly['avg_score'] = gstar_avg_ungvien_weekly['diem_danh_gia_sau_trong_so']/gstar_avg_ungvien_weekly['trong_so']
+
+
+        with st.expander("Dữ liệu chi tiết - over all"):
+            st.dataframe(gstar_avg_ungvien)
+
+        with st.expander("Overall - chart"):
+            col1, col2 = st.columns(2)
+            with col1:
+                chart_gio_cong_score = char_gio_cong_avg_score(gstar_avg_ungvien)
+
+                st.plotly_chart(chart_gio_cong_score)
+            with col2:
+                chart_violin_avgscore = chart_violin_avgscore(gstar_avg_ungvien)
+                st.plotly_chart(chart_violin_avgscore)
+                            
+        # Fill NaN values in 'avg_score' with a default value (e.g., 0)
+        # gstar_avg_ungvien_weekly['avg_score'] = gstar_avg_ungvien_weekly['avg_score'].fillna(0)
+
+        # Create a combined label for the y-axis
+        gstar_avg_ungvien_weekly['combined_label'] = (
+            gstar_avg_ungvien_weekly['ma_ung_vien'].astype(str) + ' - ' +
+            gstar_avg_ungvien_weekly['ten_ung_vien']
         )
-        st.dataframe(data_allocated_bonus_style)
 
-    with st.expander("TC Tiers"):
-        ghi_chu2 = '''
-        **[1] TC/ngày từ & TC/ngày đến**: khoảng TC/ngày của mỗi level  
-        **[2] TC/tháng từ & TC/tháng đến**: khoảng TC/tháng của mỗi level tính theo :blue-background[30 ngày hoạt động]  
-        **[3] Lương cơ bản tại Tier0/ngày & Lương cơ bản tại Tier0/tháng**: tính theo :blue-background[30 ngày hoạt động]  
-        **[4] X-đơn giá tiền lương/TC** trong từng mức tier.          
-        ***Ví dụ*** ở level **tier1**, có TC/ngày từ 51 đến 140, đơn giá X=40.000đ/TC thì giả sử tại ngày hoạt động có TC là 100, nhà hàng sẽ **:green[nhận thêm]** tiền lương tại mức tier1 là:  
-        :money_with_wings: (100-51+1)*40.000 = **:green[2.000.000đ]**.  
-        Với lương cơ bản tại tier0 = 1.800.000đ/ngày thì **lương khoán tại ngày hôm đó** sẽ là:  
-        :moneybag: 1.800.000 + 2.000.000 = **:green[3.800.000đ]**  
+        # Format avg_score to one decimal place for display as text
+        gstar_avg_ungvien_weekly['avg_score_text'] = gstar_avg_ungvien_weekly['avg_score'].map(lambda x: f"{x:.1f}")
 
-        Vẫn ví dụ ở level tier1, có TC/tháng từ 1.501 đến 4.200, đơn giá vẫn là 40.000đ/TC thì giả sử cả tháng đạt 1.800TC, nhà hàng sẽ **:green[nhận thêm]** tiền lương tại mức tier1 là:  
-        :money_with_wings: (1.800-1.501+1)*40.000 = **:green[12.000.000]**.  
-        Với lương cơ bản tại tier0 = 54.000.000đ/tháng, tổng **lương khoán tại tháng đó** sẽ là:  
-        :moneybag: 54.000.000 + 12.000.000 = **:green[66.000.000đ]**
-        '''
-        st.markdown(ghi_chu2)
-        styled_tctier = display_tiertc(tier_tc)
-        st.dataframe(styled_tctier)
+        with st.expander("Weekly score"):
+            fig = px.scatter(
+                gstar_avg_ungvien_weekly,
+                x='yw',
+                y='combined_label',
+                size='avg_score',          # Dot size represents avg_score
+                color='avg_score',          # Color scale based on avg_score
+                color_continuous_scale='Viridis',  # Choose a color scale, e.g., Viridis
+                title="Weekly Average Score Scatter Plot with Color Scale for avg_score",
+                labels={'yw': 'Week', 'combined_label': 'Candidate Info'},
+                hover_data={'ma_ung_vien': True, 'doi_tuong': True, 'ten_ung_vien': True, 'avg_score': True},
+                text='avg_score_text'
+            )
 
-    with st.container(border=True):
-        st.plotly_chart(fig2)
-    with st.container(border=True):
-        fig_storesum = chart_luong_tt_bystore(data_daily)
-        st.plotly_chart(fig_storesum)
+
+            # Update layout for better visualization
+            fig.update_layout(
+                title="Weekly Average Score",
+                # xaxis_title="Week (yw)",
+                # yaxis_title="Candidate Info (ma_ung_vien - doi_tuong - ten_ung_vien)",
+                height=35*gstar_avg_ungvien_weekly['ma_ung_vien'].nunique(),  # Adjust height for better readability
+                # annotations=annotations
+            )
+
+            st.plotly_chart(fig)
