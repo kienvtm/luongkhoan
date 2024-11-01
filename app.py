@@ -1,7 +1,7 @@
 import streamlit as st
 import duckdb
 import pandas as pd
-import datetime
+from datetime import datetime, timedelta
 import pytz
 from pathlib import Path
 import plotly.express as px
@@ -684,12 +684,13 @@ else:
         st.rerun()
 
     # Get the current date
-    current_date = datetime.datetime.now()
+    current_date = datetime.now()
+    yesterday = datetime.now() - timedelta(days=1)
 
     # Get the start of the current month
-    start_of_month = current_date.replace(day=1)
+    start_of_month = yesterday.replace(day=1)
     from_date = st.sidebar.date_input('Lay du lieu tu ngay', value=start_of_month)
-    to_date = st.sidebar.date_input('Lay du lieu den ngay')
+    to_date = st.sidebar.date_input('Lay du lieu den ngay', value=yesterday)
 
     # st.write(from_date)
     # st.write(to_date)
@@ -735,7 +736,7 @@ else:
         data_daily = data_daily1[flt]
 
     last_update_time = data_daily['cob_dt'].max()
-
+    # st.write(last_update_time)
     # Define your local timezone (for example, 'Asia/Singapore')
     local_timezone = pytz.timezone('Etc/GMT-7')
 
