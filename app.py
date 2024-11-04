@@ -1137,6 +1137,6 @@ else:
                 chart_violin_avgscore = chart_violin_avgscore(gstar_avg_ungvien)
                 st.plotly_chart(chart_violin_avgscore)
 
-    with st.expander("Weekly score"):
-        chart_weekly_gstar_score = chart_weekly_gstar_score(gstar_avg_ungvien_weekly)
-        st.plotly_chart(chart_weekly_gstar_score)
+        with st.expander("Weekly score"):
+            chart_weekly_gstar_score = chart_weekly_gstar_score(gstar_avg_ungvien_weekly)
+            st.plotly_chart(chart_weekly_gstar_score)
