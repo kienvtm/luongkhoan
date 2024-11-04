@@ -682,8 +682,8 @@ def char_gio_cong_avg_score(gstar_avg_ungvien):
     }
 
     fig = px.scatter(gstar_avg_ungvien, 
-                        x='avg_score', 
-                        y='gio_cong_thuc_te',
+                        y='avg_score', 
+                        x='gio_cong_thuc_te',
                         color='doi_tuong',
                         title='Giờ công thực tế - Điểm trung bình',
                         hover_data={
@@ -694,6 +694,7 @@ def char_gio_cong_avg_score(gstar_avg_ungvien):
                         color_discrete_map=color_map,
                         opacity=0.7  # Adjust the opacity level here
                         )
+    
     return fig
 
 
@@ -727,6 +728,62 @@ def chart_violin_avgscore(gstar_avg_ungvien):
         # showlegend=False
     )
     return fig
+
+
+
+
+def chart_weekly_gstar_score(gstar_avg_ungvien_weekly):             
+    # Fill NaN values in 'avg_score' with a default value (e.g., 0)
+    # gstar_avg_ungvien_weekly['avg_score'] = gstar_avg_ungvien_weekly['avg_score'].fillna(0)
+    # Get unique 'yw' values
+    unique_yw = gstar_avg_ungvien_weekly['yw'].unique()
+
+    # Create a DataFrame with dummy data for each unique 'yw'
+    dummy_data = pd.DataFrame({
+        'yw': unique_yw,
+        'ma_ung_vien': '',           # Empty string for ma_ung_vien
+        'doi_tuong': '',             # Empty string for doi_tuong
+        'ten_ung_vien': '',          # Empty string for ten_ung_vien
+        'avg_score': 0               # avg_score set to 0
+    })
+
+    # Concatenate the dummy data to the original DataFrame
+    gstar_avg_ungvien_weekly_with_dummy = pd.concat([gstar_avg_ungvien_weekly, dummy_data], ignore_index=True)
+
+    # Create a combined label for the y-axis
+    gstar_avg_ungvien_weekly_with_dummy['combined_label'] = (
+        gstar_avg_ungvien_weekly_with_dummy['ma_ung_vien'].astype(str) + ' - ' +
+        gstar_avg_ungvien_weekly_with_dummy['ten_ung_vien']
+    )
+
+    # Format avg_score to one decimal place for display as text
+    gstar_avg_ungvien_weekly_with_dummy['avg_score_text'] = gstar_avg_ungvien_weekly_with_dummy['avg_score'].map(lambda x: f"{x:.1f}")
+
+
+
+    fig = px.scatter(
+        gstar_avg_ungvien_weekly_with_dummy,
+        x='yw',
+        y='combined_label',
+        size='avg_score',          # Dot size represents avg_score
+        color='avg_score',          # Color scale based on avg_score
+        color_continuous_scale='Viridis',  # Choose a color scale, e.g., Viridis
+        title="Weekly Average Score Scatter Plot with Color Scale for avg_score",
+        labels={'yw': 'Week', 'combined_label': 'Candidate Info'},
+        hover_data={'ma_ung_vien': True, 'doi_tuong': True, 'ten_ung_vien': True, 'avg_score': True},
+        text='avg_score_text'
+    )
+
+    # Update layout for better visualization
+    fig.update_layout(
+        title="Weekly Average Score",
+        # xaxis_title="Week (yw)",
+        # yaxis_title="Candidate Info (ma_ung_vien - doi_tuong - ten_ung_vien)",
+        height=max(400,40*gstar_avg_ungvien_weekly['ma_ung_vien'].nunique()),  # Adjust height for better readability
+        # annotations=annotations
+    )
+    return fig
+
 
 CREDENTIALS = st.secrets["credentials"]
 # st.write(CREDENTIALS)
@@ -1068,50 +1125,18 @@ else:
         with st.expander("Dữ liệu chi tiết - over all"):
             st.dataframe(gstar_avg_ungvien)
 
-        with st.expander("Overall - chart"):
-            col1, col2 = st.columns(2)
-            with col1:
+        # with st.expander("Overall - chart"):
+        col1, col2 = st.columns(2)
+        with col1:
+            with st.container(border=True):
                 chart_gio_cong_score = char_gio_cong_avg_score(gstar_avg_ungvien)
 
                 st.plotly_chart(chart_gio_cong_score)
-            with col2:
+        with col2:
+            with st.container(border=True):
                 chart_violin_avgscore = chart_violin_avgscore(gstar_avg_ungvien)
                 st.plotly_chart(chart_violin_avgscore)
-                            
-        # Fill NaN values in 'avg_score' with a default value (e.g., 0)
-        # gstar_avg_ungvien_weekly['avg_score'] = gstar_avg_ungvien_weekly['avg_score'].fillna(0)
 
-        # Create a combined label for the y-axis
-        gstar_avg_ungvien_weekly['combined_label'] = (
-            gstar_avg_ungvien_weekly['ma_ung_vien'].astype(str) + ' - ' +
-            gstar_avg_ungvien_weekly['ten_ung_vien']
-        )
-
-        # Format avg_score to one decimal place for display as text
-        gstar_avg_ungvien_weekly['avg_score_text'] = gstar_avg_ungvien_weekly['avg_score'].map(lambda x: f"{x:.1f}")
-
-        with st.expander("Weekly score"):
-            fig = px.scatter(
-                gstar_avg_ungvien_weekly,
-                x='yw',
-                y='combined_label',
-                size='avg_score',          # Dot size represents avg_score
-                color='avg_score',          # Color scale based on avg_score
-                color_continuous_scale='Viridis',  # Choose a color scale, e.g., Viridis
-                title="Weekly Average Score Scatter Plot with Color Scale for avg_score",
-                labels={'yw': 'Week', 'combined_label': 'Candidate Info'},
-                hover_data={'ma_ung_vien': True, 'doi_tuong': True, 'ten_ung_vien': True, 'avg_score': True},
-                text='avg_score_text'
-            )
-
-
-            # Update layout for better visualization
-            fig.update_layout(
-                title="Weekly Average Score",
-                # xaxis_title="Week (yw)",
-                # yaxis_title="Candidate Info (ma_ung_vien - doi_tuong - ten_ung_vien)",
-                height=35*gstar_avg_ungvien_weekly['ma_ung_vien'].nunique(),  # Adjust height for better readability
-                # annotations=annotations
-            )
-
-            st.plotly_chart(fig)
+    with st.expander("Weekly score"):
+        chart_weekly_gstar_score = chart_weekly_gstar_score(gstar_avg_ungvien_weekly)
+        st.plotly_chart(chart_weekly_gstar_score)
