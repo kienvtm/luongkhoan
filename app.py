@@ -784,6 +784,62 @@ def chart_weekly_gstar_score(gstar_avg_ungvien_weekly):
     )
     return fig
 
+def char_gio_cong_daily_score(data_gstar):
+
+    # Define custom colors for each 'doi_tuong' category
+    color_map = {
+        "GGG": "blue",   # Replace 'Category1' with the actual value in 'doi_tuong'
+        "Freelancer": "orange",  # Replace 'Category2' with the actual value in 'doi_tuong'
+        # Add more mappings as needed
+    }
+
+    fig = px.scatter(data_gstar, 
+                        y='diem_danh_gia', 
+                        x='gio_cong_thuc_te',
+                        color='doi_tuong',
+                        title='Giờ công thực tế - Điểm đánh giá',
+                        hover_data={
+                            "ma_ung_vien":True,
+                            "ten_ung_vien":True,
+                            "doi_tuong":True,
+                        },
+                        color_discrete_map=color_map,
+                        opacity=0.7  # Adjust the opacity level here
+                        )
+    
+    return fig
+
+
+def chart_violin_dailyscore(data_gstar):
+
+    # Define custom colors for each 'doi_tuong' category
+    color_map = {
+        "GGG": "blue",   # Replace 'Category1' with the actual value in 'doi_tuong'
+        "Freelancer": "orange",  # Replace 'Category2' with the actual value in 'doi_tuong'
+        # Add more mappings as needed
+    }
+
+    fig = px.violin(data_gstar,
+                    y='diem_danh_gia',
+                    points='all', 
+                    box=True,
+                    color='doi_tuong',
+                    hover_data={
+                        'ma_ung_vien':True,
+                        'doi_tuong':True,
+                        'ten_ung_vien':True,
+                    },
+                    color_discrete_map=color_map
+                )
+    # Update layout for better visualization (optional)
+    fig.update_traces(marker=dict(opacity=0.7),
+                    meanline_visible=True,
+                    )  # Adjust marker opacity if needed
+    fig.update_layout(
+        title='Phân bố điểm thực tế',
+        # showlegend=False
+    )
+    return fig
 
 CREDENTIALS = st.secrets["credentials"]
 # st.write(CREDENTIALS)
@@ -1140,3 +1196,13 @@ else:
         with st.expander("Weekly score"):
             chart_weekly_gstar_score = chart_weekly_gstar_score(gstar_avg_ungvien_weekly)
             st.plotly_chart(chart_weekly_gstar_score)
+
+        with st.expander("Daily score data"):
+            st.dataframe(data_gstar[['ma_ung_vien', 'doi_tuong', 'ten_ung_vien', 'ma_nha_hang_tuyen','store_vt', 'mien', 'sbu', 'brand', 'ngay_tuyen', 'gio_cong_thuc_te', 'diem_danh_gia', ]])
+
+        with st.expander("Daily score chart"):
+            char_gio_cong_daily_score = char_gio_cong_daily_score(data_gstar)
+            st.plotly_chart(char_gio_cong_daily_score)
+
+            chart_violin_dailyscore = chart_violin_dailyscore(data_gstar)
+            st.plotly_chart(chart_violin_dailyscore)
