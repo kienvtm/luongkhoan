@@ -124,13 +124,14 @@ def get_allocated_bonus(from_date, to_date, store=''):
     return df_data
 
 @st.cache_data
-def get_tier_tc(store=''):
+def get_tier_tc(from_date, to_date, store=''):
     if len(store)>0:
         query = rf'''
         SELECT 
             *
         FROM tc_tier 
         WHERE storevt in ({store})
+        and ym >= strftime(DATE '{from_date}','%Y%m') and ym <= strftime(DATE '{to_date}','%Y%m')
         '''
     else:
         query = rf'''
@@ -511,6 +512,7 @@ def display_table(data_daily):
             'report_date', 
             'tc_forecast', 
         'baseline_rfc', 
+        'luong_khoan_daily_rfc',
         'whr_sche',
             'tc', 
         'baseline_act', 
@@ -537,6 +539,7 @@ def display_table(data_daily):
     rename_cols ={'brand':'Brand', 
                 'store_vt':'Store', 
                 'tc_forecast':'TC Forecast', 
+                'luong_khoan_daily_rfc':'Lương khoán - TC RFC',
                 'report_date':'Date', 
                 'tc':'TC Actual', 
                 'luongtt_gstar':'Lương Gstar',
@@ -560,7 +563,7 @@ def display_table(data_daily):
                 'whr_act_vs_baseline_act':'Chênh lệch WHR Thực tế - Baseline TC Act (%)'
     }
 
-    format_cols2 =['TC Forecast', 'TC Actual', 'Lương Gstar', 'Lương trực tiếp','Tổng lương trực tiếp','Lương khoán theo TC từng ngày','Chênh lệch Khoán - Thực tế hàng ngày',
+    format_cols2 =['TC Forecast', 'TC Actual', 'Lương Gstar', 'Lương trực tiếp','Tổng lương trực tiếp','Lương khoán theo TC từng ngày','Chênh lệch Khoán - Thực tế hàng ngày','Lương khoán - TC RFC',
                 #    'TC trung bình',
                    'Giờ công lập lịch','Baseline TC Actual','Baseline TC Forecast','Giờ công thực tế', 'Giờ công Gstar', 'Tổng giờ công', 'Chênh lệch WHR Thực tế - Baseline TC Act (%)' ]
     
@@ -586,7 +589,7 @@ def display_tiertc(tier_tc):
 
     tier_tc['luong_tt_tier0_monthly'] = tier_tc['luong_tt_tier0']*30
     cols = [
-        'brand', 'pc', 'storevt', 'level_report',
+        'ym','brand', 'pc', 'storevt', 'level_report',
        'tc_from_daily', 
        'tc',
        'tier_from', 
@@ -596,6 +599,7 @@ def display_tiertc(tier_tc):
         'bonus_per_tc_over'
        ]
     rename_cols = {
+        "ym":'Tháng',
         'brand':"Brand", 
         'pc':"Profit center", 
         'storevt':"Store", 
@@ -942,7 +946,7 @@ else:
 
     data_gstar = get_data_gstar(from_date, to_date, chon_store)
     data_allocated_bonus = get_allocated_bonus(from_date, to_date, chon_store)
-    tier_tc = get_tier_tc(chon_store)
+    tier_tc = get_tier_tc(from_date, to_date, chon_store)
     # st.dataframe(data_daily)
 
     data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily'] - data_daily['total_luongtt_act']
