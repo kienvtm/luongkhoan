@@ -194,8 +194,12 @@ def chart_luong_tt(data_daily):
     Chat the hien chenh lech giua Luong TT thuc te voi Luong khoan tinh theo daily TC
     '''
     # Define colors for 'chenh_lech_luong_khoan'
-    colors = ['#87FE1A' if val > 0 else '#F90202' for val in data_daily['chenh_lech_luong_khoan']]
-
+    colors = [
+    '#A9A9A9' if row['total_luongtt_act'] == 0 else 
+    ('#F90202' if row['chenh_lech_luong_khoan'] <= 0 else '#87FE1A')
+    for idx, row in data_daily.iterrows()
+    ]
+    # st.dataframe(data_daily)
     # Create a stacked bar chart using Plotly
     fig = go.Figure()
 
@@ -620,7 +624,12 @@ def display_tiertc(tier_tc):
     return styled_data
 
 def chart_dayofweek(box_data):
-    fig1 = px.violin(box_data, y='Chênh lệch', x='Ngày trong tuần', 
+
+    day_order = [ '1.Sun', '2.Mon', '3.Tue', '4.Wed', '5.Thu', '6.Fri', '7.Sat',]
+
+    fig1 = px.violin(box_data[box_data['TC Actual']>0], 
+                    y='Chênh lệch', 
+                    x='Ngày trong tuần', 
                     points='all', box=True,
                     color='Ngày trong tuần',
                     hover_data={
@@ -633,6 +642,7 @@ def chart_dayofweek(box_data):
                     'TC forecast':':,.0f', 
                     'TC Actual':':,.0f', 
                     },
+                    category_orders={'Ngày trong tuần': day_order},  # Specify order for 'Ngày trong tuần'
                     )
     # Update layout for better visualization (optional)
     fig1.update_traces(marker=dict(opacity=0.7),
@@ -648,7 +658,7 @@ def chart_dayofweek(box_data):
 
 def chart_store(box_data):
     # fig2 = px.box(data_daily, y='chenh_lech_luong_khoan', x='store_vt')
-    fig2 = px.violin(box_data, y='Chênh lệch', x='Store', 
+    fig2 = px.violin(box_data[box_data['TC Actual']>0], y='Chênh lệch', x='Store', 
                     points='all', box=True,
                     color='Store',
                     hover_data={
@@ -980,14 +990,16 @@ else:
                                                                         'luong_tt_daily':'sum',
                                                                         'total_luongtt_act':'sum',
                                                                         'chenh_lech_luong_khoan':'sum',
-                                                                        'abs_chenh_lech':'sum',
-                                                                        'min_luong':'sum',
+                                                                        # 'abs_chenh_lech':'sum',
+                                                                        # 'min_luong':'sum',
                                                                         'baseline_rfc':'sum',
                                                                         'baseline_act':'sum',
                                                                         'whr_act':'sum',
                                                                         'whr_gstar':'sum',
                                                                         'total_whr_act':'sum',
                                                                         })
+    data_chart['min_luong'] = data_chart[['luong_tt_daily', 'total_luongtt_act']].min(axis=1)
+    data_chart['abs_chenh_lech'] = data_chart['chenh_lech_luong_khoan'].abs()
 
     chart_luongtt = chart_luong_tt(data_chart)
     chart_tc = chart_tc(data_chart)
