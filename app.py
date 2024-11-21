@@ -411,12 +411,110 @@ def chart_luong_tt_bystore(data_daily):
         texttemplate='%{text:,.2f}M',  # Format with comma as thousand separator and no decimals
         textposition='outside',
         hovertemplate=(
-            "Date: %{x}<br>"
+            "Store: %{x}<br>"
             "Actual: %{customdata[0]:,.0f}<br>"
             "Khoán: %{customdata[1]:,.0f}<br>"
             "Chênh lệch: %{customdata[2]:,.0f}<br>"
             "TC Actual: %{customdata[3]:,.0f}<br>"
             "TC RFC: %{customdata[4]:,.0f}<br>"
+        ),
+        customdata=data_daily[['total_luongtt_act', 'luong_tt_daily', 'chenh_lech_luong_khoan', 'tc', 'tc_forecast']]
+    ))
+
+    # Update layout
+    fig.update_layout(
+        title='Chênh lệch Khoán - Thực tế theo Store',
+        # xaxis_title=False,
+        # yaxis_title='Values',
+        barmode='stack',
+        showlegend=False,
+        yaxis=dict(showgrid=False),  # Hide vertical grid lines
+    )
+    return fig
+
+def chart_luong_tt_bystore_chot_thang(data_chot_khoan_thang):
+    '''
+    Chat the hien chenh lech giua Luong TT thuc te voi Luong khoan chot thang theo store
+    '''
+
+    data_chot_khoan_thang = data_chot_khoan_thang.sort_values(by='profit_center')
+
+    data_chot_khoan_thang.rename(columns={'luong_khoan':'luong_tt_daily',
+                                            'pnl_luong_tt_allocated':'total_luongtt_act',
+                                            },
+                                            inplace=True,
+                                            )
+    data_chot_khoan_thang['chenh_lech_luong_khoan'] = data_chot_khoan_thang['luong_tt_daily'] - data_chot_khoan_thang['total_luongtt_act']
+    # data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily'] - data_daily['total_luongtt_act']
+    data_chot_khoan_thang['min_luong'] = data_chot_khoan_thang[['luong_tt_daily', 'total_luongtt_act']].min(axis=1)
+    data_chot_khoan_thang['abs_chenh_lech'] = data_chot_khoan_thang['chenh_lech_luong_khoan'].abs()
+
+
+    # Define colors for 'chenh_lech_luong_khoan'
+    colors = ['#87FE1A' if val > 0 else '#F90202' for val in data_chot_khoan_thang['chenh_lech_luong_khoan']]
+
+    # Create a stacked bar chart using Plotly
+    fig = go.Figure()
+
+    # Lollipop chart for 'luong_tt_daily' and 'total_luongtt_act'
+    for idx, row in data_chot_khoan_thang.iterrows():
+        # Line from 'total_luongtt_act' to 'luong_tt_daily'
+        fig.add_trace(go.Scatter(
+            x=[row['store_vt'], row['store_vt']],
+            y=[0, row['luong_tt_daily']],
+            mode='lines',
+            line=dict(color='grey', width=0.5),
+            showlegend=False
+        ))
+        # Line from 'total_luongtt_act' to 'luong_tt_daily'
+        fig.add_trace(go.Scatter(
+            x=[row['store_vt'], row['store_vt']],
+            y=[0, row['total_luongtt_act']],
+            mode='lines',
+            line=dict(color='grey', width=0.5),
+            showlegend=False
+        ))
+        # Point for 'total_luongtt_act'
+        fig.add_trace(go.Scatter(
+            x=[row['store_vt']],
+            y=[row['total_luongtt_act']],
+            mode='markers',
+            marker=dict(color='blue', size=10),
+            hovertemplate=(
+                "Date: %{x}<br>"
+                "Actual: %{y:,.0f}<br>"
+            ),
+            name='Actual' if idx == 0 else None
+        ))
+        # Point for 'luong_tt_daily'
+        fig.add_trace(go.Scatter(
+            x=[row['store_vt']],
+            y=[row['luong_tt_daily']],
+            mode='markers',
+            marker=dict(color='orange', size=10),
+            hovertemplate=(
+                "Store: %{x}<br>"
+                "Khoán: %{y:,.0f}<br>"
+            ),
+            name='Khoán' if idx == 0 else None
+        ))
+
+
+    fig.add_trace(go.Bar(
+        x=data_chot_khoan_thang['store_vt'],
+        y=data_chot_khoan_thang['abs_chenh_lech'],
+        name='Chenh Lech',
+        marker_color=colors,
+        opacity=0.8,
+        base=data_chot_khoan_thang['min_luong'],  # Stack on top of 'min_luong'
+        text=data_chot_khoan_thang['chenh_lech_luong_khoan']/1e6,  # Add data labels for 'abs_chenh_lech'
+        texttemplate='%{text:,.2f}M',  # Format with comma as thousand separator and no decimals
+        textposition='outside',
+        hovertemplate=(
+            "Stpre: %{x}<br>"
+            "Actual: %{customdata[0]:,.0f}<br>"
+            "Khoán: %{customdata[1]:,.0f}<br>"
+            "Chênh lệch: %{customdata[2]:,.0f}<br>"
         ),
         customdata=data_daily[['total_luongtt_act', 'luong_tt_daily', 'chenh_lech_luong_khoan', 'tc', 'tc_forecast']]
     ))
@@ -1063,11 +1161,16 @@ else:
 
 
     chart_whr = chart_whr(data_chart)
-
-    tong_khoan = data_daily['luong_tt_daily'].sum()
-    tong_actual = data_daily['total_luongtt_act'].sum()
-    chenh_lech = tong_khoan - tong_actual
-
+    if len(data_chot_khoan_thang) > 0:
+        tong_khoan = data_chot_khoan_thang['luong_khoan'].sum()
+        tong_actual = data_chot_khoan_thang['pnl_luong_tt_allocated'].sum()
+        chenh_lech = data_chot_khoan_thang['chenh_lech_khoan'].sum()
+        vuot_khoan = data_chot_khoan_thang['chenh_lech_khoan_pbo_theo_cum'].sum()
+    else:
+        tong_khoan = data_daily['luong_tt_daily'].sum()
+        tong_actual = data_daily['total_luongtt_act'].sum()
+        chenh_lech = tong_khoan - tong_actual
+        vuot_khoan = 0
 
     box_data = data_daily.rename(columns={
                     'report_date': 'Date',
@@ -1085,22 +1188,26 @@ else:
     tab1, tab2 = st.tabs(['Store', 'Gstar'])
     with tab1:
 
-        col01, col02 = st.columns(2)
-        with col01:
-            with st.container(border=True):
-                col21, col22, col23 = st.columns(3)
-                with col21:
-                    st.metric(label='Lương khoán theo TC từng ngày tạm tính', 
-                            value=f'{tong_khoan/1e6:,.1f}M',
-                            )
-                with col22:
-                    st.metric(label='Lương thực tế tạm tính', 
-                            value=f'{tong_actual/1e6:,.1f}M',
-                            )
-                with col23:
-                    st.metric(label='Chênh lệch', 
-                            value=f'{chenh_lech/1e6:,.1f}M',
-                            )
+        with st.container(border=True):
+            col21, col22, col23, col24 = st.columns(4)
+            with col21:
+                st.metric(label='Lương khoán theo TC từng ngày tạm tính', 
+                        value=f'{tong_khoan/1e6:,.1f}M',
+                        )
+            with col22:
+                st.metric(label='Lương thực tế tạm tính', 
+                        value=f'{tong_actual/1e6:,.1f}M',
+                        )
+            with col23:
+                st.metric(label='Chênh lệch', 
+                        value=f'{chenh_lech/1e6:,.1f}M',
+                        )
+            with col24:
+                st.metric(label='Vượt khoán chốt tháng', 
+                        value=f'{vuot_khoan/1e6:,.1f}M',
+                        )
+        # col01, col02 = st.columns(2)
+        # with col01:
         col1, col2 = st.columns(2)
         with col1:
             with st.container(border=True):
@@ -1333,7 +1440,10 @@ else:
         with st.container(border=True):
             st.plotly_chart(fig2)
         with st.container(border=True):
-            fig_storesum = chart_luong_tt_bystore(data_daily)
+            if len(data_chot_khoan_thang)>0:
+                fig_storesum = chart_luong_tt_bystore_chot_thang(data_chot_khoan_thang)
+            else:
+                fig_storesum = chart_luong_tt_bystore(data_daily)
             st.plotly_chart(fig_storesum)
     
     with tab2:
