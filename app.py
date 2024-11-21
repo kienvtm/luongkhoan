@@ -516,7 +516,7 @@ def chart_luong_tt_bystore_chot_thang(data_chot_khoan_thang):
             "Khoán: %{customdata[1]:,.0f}<br>"
             "Chênh lệch: %{customdata[2]:,.0f}<br>"
         ),
-        customdata=data_daily[['total_luongtt_act', 'luong_tt_daily', 'chenh_lech_luong_khoan', 'tc', 'tc_forecast']]
+        customdata=data_chot_khoan_thang[['total_luongtt_act', 'luong_tt_daily', 'chenh_lech_luong_khoan']]
     ))
 
     # Update layout
