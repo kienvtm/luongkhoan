@@ -8,6 +8,7 @@ from pathlib import Path
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from st_aggrid import AgGrid
 st.set_page_config(layout="wide")
 
 
@@ -20,12 +21,16 @@ dta_daily_path = cwd.joinpath('data_luongtt.parquet')
 tier_tc_path = cwd.joinpath('tier_tc.parquet')
 dta_pbo_thuong_path = cwd.joinpath('dta_pbo_thuong.parquet')
 dta_gstar_path = cwd.joinpath('dta_gstar.parquet')
+dta_pbo_chot_thang_path = cwd.joinpath('pbo_khoan_chot_thang.parquet')
+chot_khoan_thang_path = cwd.joinpath('chot_khoan.parquet')
 
 db = duckdb.connect()
 db.execute(f"CREATE or replace temp VIEW data_daily AS SELECT * FROM '{dta_daily_path}'")
 db.execute(f"CREATE or replace temp VIEW tc_tier AS SELECT * FROM '{tier_tc_path}'")
 db.execute(f"CREATE or replace temp VIEW dta_pbo_thuong AS SELECT * FROM '{dta_pbo_thuong_path}'")
 db.execute(f"CREATE or replace temp VIEW dta_gstar AS SELECT * FROM '{dta_gstar_path}'")
+db.execute(f"CREATE or replace temp VIEW dta_pbo_thuong_chot_thang AS SELECT * FROM '{dta_pbo_chot_thang_path}'")
+db.execute(f"CREATE or replace temp VIEW dta_chot_khoan_thang AS SELECT * FROM '{chot_khoan_thang_path}'")
 
 st.title("Dashboard Lương khoán theo TC từng ngày")
 
@@ -122,6 +127,55 @@ def get_allocated_bonus(from_date, to_date, store=''):
     df_data = db.execute(query).fetch_df()
     # st.write(len(df_data))
     return df_data
+
+
+
+@st.cache_data
+def get_data_chot_khoan_thang(from_date, to_date, store=''):
+    if len(store)>0:
+        query = rf'''
+        SELECT 
+            *
+        FROM dta_chot_khoan_thang 
+        WHERE store_vt in ({store})
+        and som::date between date_trunc('month', '{from_date}'::date) and date_trunc('month','{to_date}'::date)
+        '''
+    else:
+        query = rf'''
+        SELECT 
+            *
+        FROM dta_chot_khoan_thang 
+        and som::date between date_trunc('month', '{from_date}'::date) and date_trunc('month','{to_date}'::date)
+        '''
+    # st.write(query)
+    df_data = db.execute(query).fetch_df()
+    # st.write(len(df_data))
+    return df_data
+
+
+
+@st.cache_data
+def get_data_pbo_chot_thang(from_date, to_date, store=''):
+    if len(store)>0:
+        query = rf'''
+        SELECT 
+            *
+        FROM dta_pbo_thuong_chot_thang 
+        WHERE store_vt in ({store})
+        and start_of_month::date between date_trunc('month', '{from_date}'::date) and date_trunc('month','{to_date}'::date)
+        '''
+    else:
+        query = rf'''
+        SELECT 
+            *
+        FROM dta_pbo_thuong_chot_thang 
+        and start_of_month::date between date_trunc('month', '{from_date}'::date) and date_trunc('month','{to_date}'::date)
+        '''
+    # st.write(query)
+    df_data = db.execute(query).fetch_df()
+    # st.write(len(df_data))
+    return df_data
+
 
 @st.cache_data
 def get_tier_tc(from_date, to_date, store=''):
@@ -956,6 +1010,9 @@ else:
 
     data_gstar = get_data_gstar(from_date, to_date, chon_store)
     data_allocated_bonus = get_allocated_bonus(from_date, to_date, chon_store)
+    data_chot_khoan_thang = get_data_chot_khoan_thang(from_date, to_date, chon_store)
+    data_pbo_chot_thang = get_data_pbo_chot_thang(from_date, to_date, chon_store)
+    data_pbo_chot_thang['start_of_month'] = pd.to_datetime(data_pbo_chot_thang['start_of_month'])
     tier_tc = get_tier_tc(from_date, to_date, chon_store)
     # st.dataframe(data_daily)
 
@@ -1060,7 +1117,67 @@ else:
         styled_data, styled_data_summary =display_table(data_daily)
 
         with st.expander("Dữ liệu tổng hợp"):
-            st.dataframe(styled_data_summary)
+            # st.write(data_chot_khoan_thang.columns)
+            if len(data_chot_khoan_thang)>0:
+                st.data_editor(data_chot_khoan_thang.style.format({
+                    "tc": "{:,.1f}",
+                    "no_of_days": "{:,.0f}",
+                    "avg_tc_per_day": "{:,.1f}",
+                    "luong_tt_tier0": "{:,.0f}",
+                    "bonus_vuot_tier": "{:,.0f}",
+                    "luong_khoan": "{:,.0f}",
+                    "pnl_luong_tt_allocated": "{:,.0f}",
+                    "chenh_lech_khoan": "{:,.0f}",
+                    "chenh_lech_khoan_theo_cum": "{:,.0f}",
+                    "chenh_lech_khoan_pbo_theo_cum": "{:,.0f}",
+                    },
+                    ),
+                    column_order=['som','profit_center', 'store_vt', 'no_of_days', 'tc','avg_tc_per_day',
+                    # 'luong_tt_tier0',
+                    'luong_khoan','pnl_luong_tt_allocated','chenh_lech_khoan','chenh_lech_khoan_theo_cum','chenh_lech_khoan_pbo_theo_cum'],
+                    column_config={
+                        "profit_center": st.column_config.TextColumn(
+                            "Mã NH",
+                        ),
+                        "store_vt": st.column_config.TextColumn(
+                            "Nhà hàng",
+                        ),
+                        "som": st.column_config.DatetimeColumn(
+                            "Tháng",
+                            format='MM/YYYY',
+                        ),
+                        "no_of_days": st.column_config.NumberColumn(
+                            "Số ngày",
+                        ),
+                        "tc": st.column_config.NumberColumn(
+                            "TC",
+                        ),
+                        "avg_tc_per_day": st.column_config.NumberColumn(
+                            "TC/ngày",
+                        ),
+                        "avg_tc_per_day": st.column_config.NumberColumn(
+                            "TC/ngày",
+                        ),
+                        "luong_khoan": st.column_config.NumberColumn(
+                            "Lương khoán",
+                        ),
+                        "pnl_luong_tt_allocated": st.column_config.NumberColumn(
+                            "Lương thực tế",
+                        ),
+                        "chenh_lech_khoan": st.column_config.NumberColumn(
+                            "Chênh lệch khoán",
+                        ),
+                        "chenh_lech_khoan_theo_cum": st.column_config.NumberColumn(
+                            "Chênh lệch khoán theo cụm NH",
+                        ),
+                        "chenh_lech_khoan_pbo_theo_cum": st.column_config.NumberColumn(
+                            "Vượt khoán",
+                        ),
+                    },
+                    disabled=True,
+                    )
+            else:
+                st.dataframe(styled_data_summary)
             
         with st.expander("Dữ liệu chi tiết"):
         # Display the formatted DataFrame
@@ -1081,12 +1198,7 @@ else:
             Phần chênh lệch lương khoán >0 được phân chia cho các cá nhân dựa trên:    
             **[1] Tổng số giờ công trong tháng**  
             **[2] Hệ số nhóm nhân viên**  
-            - Nhóm 1.1: Hệ số 2  
-            - Nhóm 1.2: Hệ số 1  
-            - Nhóm 2: Hệ số 0.7   
-
             **[3] Giờ công sau hệ số** = [1]*[2]  
-
             **[4] Hệ số phân bổ** 
             '''
             st.markdown(ghi_chu3)
@@ -1151,7 +1263,52 @@ else:
                 'Phân bổ chênh lệch Khoán':"{:,.0f}".format,
                 }
             )
-            st.dataframe(data_allocated_bonus_style)
+            if len(data_pbo_chot_thang) == 0:
+                st.dataframe(data_allocated_bonus_style)
+            else:
+                st.data_editor(
+                    data_pbo_chot_thang.style.format({"allocate_vuot_khoan": "{:,.0f}"}),
+                    column_order=["profit_center", "store_vt", "start_of_month",'ma_nv','ho_va_ten','chuc_danh','nhom_smart_staffing','nhom_nhan_thuong','he_so_thuong','level_report','allocate_vuot_khoan'],
+                    column_config={
+                        "profit_center": st.column_config.TextColumn(
+                            "Mã NH",
+                        ),
+                        "store_vt": st.column_config.TextColumn(
+                            "Nhà hàng",
+                        ),
+                        "start_of_month": st.column_config.DatetimeColumn(
+                            "Tháng",
+                            format='MM/YYYY',
+                        ),
+                        "ma_nv": st.column_config.TextColumn(
+                            "Mã nhân viên",
+                        ),
+                        "ho_va_ten": st.column_config.TextColumn(
+                            "Họ và tên",
+                        ),
+                        "chuc_danh": st.column_config.TextColumn(
+                            "Chức danh",
+                        ),
+                        "nhom_smart_staffing": st.column_config.TextColumn(
+                            "Nhóm staffing",
+                        ),
+                        "nhom_nhan_thuong": st.column_config.TextColumn(
+                            "Nhóm",
+                        ),
+                        "he_so_thuong": st.column_config.NumberColumn(
+                            "Hệ số",
+                            format ='%.1f'
+                        ),
+                        "level_report": st.column_config.TextColumn(
+                            "Level",
+                        ),
+                        "allocate_vuot_khoan": st.column_config.NumberColumn(
+                            "Vượt khoán",
+                            # format ='%.f'
+                        ),
+                    },
+                    disabled =True
+                    )
 
         with st.expander("TC Tiers"):
             ghi_chu2 = '''
