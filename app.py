@@ -618,13 +618,13 @@ def chart_whr(data_daily):
         y=data_daily['whr_gstar'],
         name='WHR Gstar',
         marker_color='orange',
-        hovertemplate=(
-            "Report Date: %{x}<br>"
-            "Gstar: %{y}<br>"
-            "Gstar/Baseline RFC: %{customdata[0]:.2f}%<br>"
-            "Gstar/Act: %{customdata[1]:.2f}%<br>"
-        ),
-        customdata=data_daily[['pct_whr_gstar_to_baseline', 'pct_whr_gstar_to_total_whr']]
+        # hovertemplate=(
+        #     "Report Date: %{x}<br>"
+        #     "Gstar: %{y}<br>"
+        #     "Gstar/Baseline RFC: %{customdata[0]:.2f}%<br>"
+        #     "Gstar/Act: %{customdata[1]:.2f}%<br>"
+        # ),
+        # customdata=data_daily[['pct_whr_gstar_to_baseline', 'pct_whr_gstar_to_total_whr']]
     ))
 
     # Update layout for the stacked bar and line combination
@@ -1123,8 +1123,10 @@ else:
     data_daily['whr_act_vs_baseline_act'] = (data_daily['total_whr_act'] / data_daily['baseline_act']) * 100
 
     format_cols = [
-        'tc', 'mtd_avg_tc', 'tc_from_daily_mtd', 'tc_to_daily_mtd', 'luong_tt_tier0',
-        'bonus_per_tc_over_avg_mtd', 'bonus_fix_daily_avg_mtd', 'bonus_daily_avg_mtd',
+        'tc', 
+        # 'mtd_avg_tc', 'tc_from_daily_mtd', 'tc_to_daily_mtd', 
+        # 'luong_tt_tier0',
+        # 'bonus_per_tc_over_avg_mtd', 'bonus_fix_daily_avg_mtd', 'bonus_daily_avg_mtd',
         'luong_tt_daily', 'whr_act', 'whr_sche', 'baseline_act', 'baseline_rfc',
         'whr_gstar', 'luongtt_gstar', 'total_whr_act','chenh_lech_luong_khoan',
         'luongtt_ggg', 'total_luongtt_act'
