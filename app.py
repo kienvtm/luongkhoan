@@ -338,15 +338,15 @@ def chart_luong_tt_bystore(data_daily):
 
 
     data_daily = data_daily.groupby(['profit_center', 'store_vt'], as_index=False).agg({
-        "chenh_lech_luong_khoan": "sum",
-        "luong_tt_daily": "sum",
+        # "chenh_lech_luong_khoan": "sum",
+        "luong_tt_daily_avg_mtd": "sum",
         "total_luongtt_act": "sum",
         "tc": "sum",
         "tc_forecast": "sum",
     })
-    data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily'] - data_daily['total_luongtt_act']
+    data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily_avg_mtd'] - data_daily['total_luongtt_act']
     # data_daily['chenh_lech_luong_khoan'] = data_daily['luong_tt_daily'] - data_daily['total_luongtt_act']
-    data_daily['min_luong'] = data_daily[['luong_tt_daily', 'total_luongtt_act']].min(axis=1)
+    data_daily['min_luong'] = data_daily[['luong_tt_daily_avg_mtd', 'total_luongtt_act']].min(axis=1)
     data_daily['abs_chenh_lech'] = data_daily['chenh_lech_luong_khoan'].abs()
 
 
@@ -361,7 +361,7 @@ def chart_luong_tt_bystore(data_daily):
         # Line from 'total_luongtt_act' to 'luong_tt_daily'
         fig.add_trace(go.Scatter(
             x=[row['store_vt'], row['store_vt']],
-            y=[0, row['luong_tt_daily']],
+            y=[0, row['luong_tt_daily_avg_mtd']],
             mode='lines',
             line=dict(color='grey', width=0.5),
             showlegend=False
@@ -389,7 +389,7 @@ def chart_luong_tt_bystore(data_daily):
         # Point for 'luong_tt_daily'
         fig.add_trace(go.Scatter(
             x=[row['store_vt']],
-            y=[row['luong_tt_daily']],
+            y=[row['luong_tt_daily_avg_mtd']],
             mode='markers',
             marker=dict(color='orange', size=10),
             hovertemplate=(
@@ -418,7 +418,7 @@ def chart_luong_tt_bystore(data_daily):
             "TC Actual: %{customdata[3]:,.0f}<br>"
             "TC RFC: %{customdata[4]:,.0f}<br>"
         ),
-        customdata=data_daily[['total_luongtt_act', 'luong_tt_daily', 'chenh_lech_luong_khoan', 'tc', 'tc_forecast']]
+        customdata=data_daily[['total_luongtt_act', 'luong_tt_daily_avg_mtd', 'chenh_lech_luong_khoan', 'tc', 'tc_forecast']]
     ))
 
     # Update layout
@@ -1162,15 +1162,26 @@ else:
     chart_tc = chart_tc(data_chart)
 
 
+    mtd_avg = data_daily.groupby(by=['ym', 'profit_center', 'store_vt', 'level_report_mtd'], as_index=False, dropna=False).agg({'mtd_avg_tc':'mean',
+    'total_luongtt_act':'sum',
+    'luong_tt_daily_avg_mtd':'sum',
+    'tc':'sum',
+    'tc_forecast':'sum',
+    })
+    mtd_avg['chenh_lech_luong_khoan'] = mtd_avg['luong_tt_daily_avg_mtd']-mtd_avg['total_luongtt_act']
+    # st.dataframe(mtd_avg)
+
     chart_whr = chart_whr(data_chart)
+
+
     if len(data_chot_khoan_thang) > 0:
         tong_khoan = data_chot_khoan_thang['luong_khoan'].sum()
         tong_actual = data_chot_khoan_thang['pnl_luong_tt_allocated'].sum()
         chenh_lech = data_chot_khoan_thang['chenh_lech_khoan'].sum()
         vuot_khoan = data_chot_khoan_thang['chenh_lech_khoan_pbo_theo_cum'].sum()
     else:
-        tong_khoan = data_daily['luong_tt_daily'].sum()
-        tong_actual = data_daily['total_luongtt_act'].sum()
+        tong_khoan = mtd_avg['luong_tt_daily_avg_mtd'].sum()
+        tong_actual = mtd_avg['total_luongtt_act'].sum()
         chenh_lech = tong_khoan - tong_actual
         vuot_khoan = 0
 
@@ -1187,13 +1198,14 @@ else:
     fig1 = chart_dayofweek(box_data)
     fig2 = chart_store(box_data)
 
+
     tab1, tab2 = st.tabs(['Store', 'Gstar'])
     with tab1:
 
         with st.container(border=True):
             col21, col22, col23, col24 = st.columns(4)
             with col21:
-                st.metric(label='Lương khoán theo TC từng ngày tạm tính', 
+                st.metric(label='Lương khoán theo TC/ngày tạm tính', 
                         value=f'{tong_khoan/1e6:,.1f}M',
                         )
             with col22:
@@ -1286,8 +1298,46 @@ else:
                     disabled=True,
                     )
             else:
-                st.dataframe(styled_data_summary)
+                # st.dataframe(data_daily)
             
+
+                st.data_editor(mtd_avg.style.format({
+                    "mtd_avg_tc": "{:,.1f}",
+                    "total_luongtt_act": "{:,.0f}",
+                    "luong_tt_daily_avg_mtd": "{:,.0f}",
+                    "chenh_lech_luong_khoan": "{:,.0f}",
+                    },
+                    ),
+                    column_order=[
+                        'ym', 'profit_center', 'store_vt', 'level_report_mtd',
+                        'mtd_avg_tc','total_luongtt_act','luong_tt_daily_avg_mtd','chenh_lech_luong_khoan',
+                    ],
+                    column_config={
+                        "profit_center": st.column_config.TextColumn(
+                            "Mã NH",
+                        ),
+                        "store_vt": st.column_config.TextColumn(
+                            "Nhà hàng",
+                        ),
+                        "level_report_mtd": st.column_config.TextColumn(
+                            "level",
+                        ),
+                        "mtd_avg_tc": st.column_config.NumberColumn(
+                            "TC/ngày",
+                        ),
+                        "total_luongtt_act": st.column_config.NumberColumn(
+                            "Lương trực tiếp",
+                        ),
+                        "luong_tt_daily_avg_mtd": st.column_config.NumberColumn(
+                            "Lương khoán",
+                        ),
+                        "chenh_lech_luong_khoan": st.column_config.NumberColumn(
+                            "Chênh lệch lương khoán",
+                        ),
+                    },
+                    disabled=True,
+                    )
+
         with st.expander("Dữ liệu chi tiết"):
         # Display the formatted DataFrame
             ghi_chu = '''
