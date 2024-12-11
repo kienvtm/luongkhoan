@@ -1051,12 +1051,12 @@ else:
     # Get the start of the current month
     start_of_month = yesterday.replace(day=1)
     from_date = st.sidebar.date_input('Lay du lieu tu ngay', 
-                                    #   value=start_of_month, 
-                                      max_value=datetime(year=2024, month=11, day=30), min_value=datetime(year=2024, month=10, day=14)
+                                      value=start_of_month, 
+                                      max_value=datetime(year=2024, month=12, day=31), min_value=datetime(year=2024, month=10, day=14)
                                       )
     to_date = st.sidebar.date_input('Lay du lieu den ngay', 
-                                    # value=yesterday, 
-                                    max_value=datetime(year=2024, month=11, day=30), min_value=datetime(year=2024, month=10, day=14))
+                                    value=yesterday, 
+                                    max_value=datetime(year=2024, month=12, day=31), min_value=datetime(year=2024, month=10, day=14))
 
     # st.write(from_date)
     # st.write(to_date)
