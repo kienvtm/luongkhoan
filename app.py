@@ -1432,7 +1432,9 @@ else:
             else:
                 st.data_editor(
                     data_pbo_chot_thang.style.format({"allocate_vuot_khoan": "{:,.0f}"}),
-                    column_order=["profit_center", "store_vt", "start_of_month",'ma_nv','ho_va_ten','chuc_danh','nhom_smart_staffing','nhom_nhan_thuong','he_so_thuong','level_report','allocate_vuot_khoan'],
+                    column_order=["profit_center", "store_vt", "start_of_month",'ma_nv','ho_va_ten','chuc_danh',
+                                #   'nhom_smart_staffing',
+                                  'nhom_nhan_thuong','tong_gio_cong','he_so_thuong','level_report','allocate_vuot_khoan'],
                     column_config={
                         "profit_center": st.column_config.TextColumn(
                             "Mã NH",
@@ -1453,11 +1455,15 @@ else:
                         "chuc_danh": st.column_config.TextColumn(
                             "Chức danh",
                         ),
-                        "nhom_smart_staffing": st.column_config.TextColumn(
-                            "Nhóm staffing",
-                        ),
+                        # "nhom_smart_staffing": st.column_config.TextColumn(
+                        #     "Nhóm staffing",
+                        # ),
                         "nhom_nhan_thuong": st.column_config.TextColumn(
                             "Nhóm",
+                        ),
+                        "tong_gio_cong": st.column_config.NumberColumn(
+                            "Giờ công",
+                            format ='%.1f'
                         ),
                         "he_so_thuong": st.column_config.NumberColumn(
                             "Hệ số",
