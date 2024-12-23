@@ -439,7 +439,7 @@ def chart_luong_tt_bystore_chot_thang(data_chot_khoan_thang):
 
     data_chot_khoan_thang = data_chot_khoan_thang.sort_values(by='profit_center')
 
-    data_chot_khoan_thang.rename(columns={'luong_khoan':'luong_tt_daily',
+    data_chot_khoan_thang.rename(columns={'luong_khoan_allocated':'luong_tt_daily',
                                             'pnl_luong_tt_allocated':'total_luongtt_act',
                                             },
                                             inplace=True,
@@ -1251,7 +1251,7 @@ else:
                     "avg_tc_per_day": "{:,.1f}",
                     "luong_tt_tier0": "{:,.0f}",
                     "bonus_vuot_tier": "{:,.0f}",
-                    "luong_khoan": "{:,.0f}",
+                    "luong_khoan_allocated": "{:,.0f}",
                     "pnl_luong_tt_allocated": "{:,.0f}",
                     "chenh_lech_khoan": "{:,.0f}",
                     "chenh_lech_khoan_theo_cum": "{:,.0f}",
@@ -1260,7 +1260,7 @@ else:
                     ),
                     column_order=['som','profit_center', 'store_vt', 'no_of_days', 'tc','avg_tc_per_day',
                     # 'luong_tt_tier0',
-                    'luong_khoan','pnl_luong_tt_allocated','chenh_lech_khoan','chenh_lech_khoan_theo_cum','chenh_lech_khoan_pbo_theo_cum'],
+                    'luong_khoan_allocated','pnl_luong_tt_allocated','chenh_lech_khoan','chenh_lech_khoan_theo_cum','chenh_lech_khoan_pbo_theo_cum'],
                     column_config={
                         "profit_center": st.column_config.TextColumn(
                             "Mã NH",
@@ -1284,7 +1284,7 @@ else:
                         "avg_tc_per_day": st.column_config.NumberColumn(
                             "TC/ngày",
                         ),
-                        "luong_khoan": st.column_config.NumberColumn(
+                        "luong_khoan_allocated": st.column_config.NumberColumn(
                             "Lương khoán",
                         ),
                         "pnl_luong_tt_allocated": st.column_config.NumberColumn(
