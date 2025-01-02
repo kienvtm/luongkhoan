@@ -57,6 +57,18 @@ def get_data_daily(from_date, to_date, store=''):
     return df_data
 
 @st.cache_data
+def get_max_date():
+    query = rf'''
+        SELECT 
+            max(report_date)::date max_date
+        FROM data_daily 
+        '''
+    # st.write(query)
+    df_data = db.execute(query).fetch_df()
+    # st.write(len(df_data))
+    return df_data
+
+@st.cache_data
 def get_data_gstar(from_date, to_date, store=''):
     if len(store)>0:
         query = rf'''
@@ -1044,19 +1056,24 @@ else:
         st.session_state.pop('username', None)
         st.rerun()
 
+    # get max date
+    max_date = get_max_date()['max_date'][0]
+
     # Get the current date
     current_date = datetime.now()
     yesterday = datetime.now() - timedelta(days=1)
 
+
+
     # Get the start of the current month
     start_of_month = yesterday.replace(day=1)
     from_date = st.sidebar.date_input('Lay du lieu tu ngay', 
-                                      value=start_of_month, 
-                                      max_value=datetime(year=2024, month=12, day=31), min_value=datetime(year=2024, month=10, day=14)
+                                      value=min(start_of_month, max_date).replace(day=1), 
+                                      max_value=max_date, min_value=datetime(year=2024, month=10, day=14)
                                       )
     to_date = st.sidebar.date_input('Lay du lieu den ngay', 
-                                    value=yesterday, 
-                                    max_value=datetime(year=2024, month=12, day=31), min_value=datetime(year=2024, month=10, day=14))
+                                    value=min(yesterday, max_date), 
+                                    max_value=max_date, min_value=datetime(year=2024, month=10, day=14))
 
     # st.write(from_date)
     # st.write(to_date)
